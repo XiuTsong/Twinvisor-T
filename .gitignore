@@ -3,3 +3,4 @@ out/
 out-br/
 toolchains/
 linux/compile_commands.json
+.gdbinit
