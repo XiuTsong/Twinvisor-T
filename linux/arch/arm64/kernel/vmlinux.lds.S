@@ -241,6 +241,22 @@ SECTIONS
 	__pecoff_data_size = ABSOLUTE(. - __initdata_begin);
 	_end = .;
 
+	.svisor.text : ALIGN(SZ_2M) {
+		__svisor_start = .;
+		__svisor_text_start = .;
+		*(.svisor.text)
+		__svisor_text_end = .;
+	}
+
+	.svisor.data : ALIGN(PAGE_SIZE) {
+		__svisor_data_start = .;
+		*(.svisor.data)
+		__svisor_data_end = .;
+	}
+
+	. = ALIGN(SZ_2M);
+	__svisor_end = .;
+
 	STABS_DEBUG
 
 	HEAD_SYMBOLS

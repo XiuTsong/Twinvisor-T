@@ -1,0 +1,7 @@
+
+menu "Secure Hypervisor"
+
+config S_VISOR
+    bool "Enable s-visor in normal world"
+
+endmenu
