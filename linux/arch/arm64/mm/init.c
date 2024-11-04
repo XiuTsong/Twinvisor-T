@@ -462,6 +462,9 @@ void __init arm64_memblock_init(void)
 	 * pagetables with memblock.
 	 */
 	memblock_reserve(__pa_symbol(_text), _end - _text);
+#ifdef CONFIG_S_VISOR
+	memblock_reserve(__pa_symbol(__svisor_start), __svisor_end - __svisor_start);
+#endif
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start) {
 		memblock_reserve(initrd_start, initrd_end - initrd_start);

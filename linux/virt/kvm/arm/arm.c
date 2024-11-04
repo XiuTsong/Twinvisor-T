@@ -195,7 +195,7 @@ inline void boot_titanium_secure_vm(u32 sec_vm_id)
     smc_req->boot.qemu_s1ptp = qemu_s1ptp;
     pr_err("%s:%d Sending KVM_SMC_BOOT ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
     local_irq_disable();
-    asm volatile("smc 0x18\n\t");
+    // asm volatile("smc 0x18\n\t");
     local_irq_enable();
     pr_err("%s:%d Return from KVM_SMC_BOOT\n", __func__, smp_processor_id());
 }
@@ -270,7 +270,7 @@ inline static void destroy_titanium_secure_vm(u32 sec_vm_id)
     smc_req->req_type = REQ_KVM_TO_TITANIUM_SHUTDOWN;
     pr_err("%s:%d Sending KVM_SMC_SHUTDOWN ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
     local_irq_disable();
-    asm volatile("smc 0x18\n\t");
+    // asm volatile("smc 0x18\n\t");
     local_irq_enable();
     pr_err("%s:%d Return from KVM_SMC_SHUTDOWN\n", __func__, smp_processor_id());
 }
@@ -1791,7 +1791,7 @@ static inline void register_titanium_shared_memory(void) {
                     __func__, __LINE__, sizeof(shared_register_pages), shared_register_pages);
     asm volatile("mov x1, %0\n"::"r"(virt_to_phys(shared_register_pages)): "x1");
     local_irq_disable();
-    asm volatile("smc #0x10\n");
+    // asm volatile("smc #0x10\n");
     local_irq_enable();
 }
 
@@ -1799,7 +1799,7 @@ void flush_titanium_shadow_page_tables() {
     kvm_smc_req_t* kvm_smc_flush_req = get_smc_req_region(smp_processor_id());
     kvm_smc_flush_req->req_type = REQ_KVM_TO_TITANIUM_FLUSH_IPA;
     local_irq_disable();
-    asm volatile("smc #0x18\n");
+    // asm volatile("smc #0x18\n");
     local_irq_enable();
 }
 EXPORT_SYMBOL(flush_titanium_shadow_page_tables);
