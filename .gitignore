@@ -1,1 +1,4 @@
 */tmp.S
+out/
+out-br/
+toolchains/
