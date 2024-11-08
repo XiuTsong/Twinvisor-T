@@ -9,3 +9,5 @@ obj-y += switch.o
 obj-y += common/
 obj-y += sched/
 obj-y += core/
+obj-y += mm/
+obj-y += virt/
