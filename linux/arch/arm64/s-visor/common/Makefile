@@ -4,3 +4,4 @@
 #
 
 obj-y += aarch64/misc.o
+obj-y += aarch64/ticket-lock.o
