@@ -3,5 +3,9 @@
 # Makefile for secure hypervisor module
 #
 
+obj-y += n-visor.o
+obj-y += switch.o
+
 obj-y += common/
 obj-y += sched/
+obj-y += core/
