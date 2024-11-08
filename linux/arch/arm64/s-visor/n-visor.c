@@ -6,6 +6,7 @@
 #include <asm/sysreg.h>
 #include <asm/memory.h>
 #include <asm/kvm_asm.h>
+#include <linux/smp.h>
 
 #include <s-visor/n-visor.h>
 #include <s-visor/s-visor.h>
@@ -79,7 +80,7 @@ static void setup_svisor_sysregs(void)
 
 void switch_to_svisor(unsigned int imm)
 {
-	unsigned int core_id = get_core_id();
+	unsigned int core_id = smp_processor_id();
 	struct nvisor_state *state = get_global_nvisor_state(core_id);
 
 	save_nvisor_state(state);
