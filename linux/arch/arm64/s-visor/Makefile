@@ -3,4 +3,5 @@
 # Makefile for secure hypervisor module
 #
 
-obj-y += test.o
+obj-y += common/
+obj-y += sched/
