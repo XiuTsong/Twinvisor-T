@@ -76,6 +76,22 @@ jiffies = jiffies_64;
 #define TRAMP_TEXT
 #endif
 
+#ifdef CONFIG_S_VISOR
+
+#define SWITCHENTRY_TEXT				\
+	. = ALIGN(PAGE_SIZE);				\
+	__switchentry = .;					\
+	*(.switchentry.text)				\
+	__switchentry_end = .;
+
+#define SVISOR_VECTORS_TEXT				\
+	. = ALIGN(PAGE_SIZE);				\
+	__svisor_handler = .;				\
+	*(.svisor_handler.text)				\
+	. = ALIGN(PAGE_SIZE);
+#endif
+
+
 /*
  * The size of the PE/COFF section that covers the kernel image, which
  * runs from stext to _edata, must be a round multiple of the PE/COFF
@@ -125,6 +141,7 @@ SECTIONS
 			IRQENTRY_TEXT
 			SOFTIRQENTRY_TEXT
 			ENTRY_TEXT
+			SWITCHENTRY_TEXT
 			TEXT_TEXT
 			SCHED_TEXT
 			CPUIDLE_TEXT
@@ -241,10 +258,20 @@ SECTIONS
 	__pecoff_data_size = ABSOLUTE(. - __initdata_begin);
 	_end = .;
 
-	.svisor.text : ALIGN(SZ_2M) {
-		__svisor_start = .;
+#ifdef CONFIG_S_VISOR
+	/* svisor section
+	 * Total size: 32M
+	 * .text + .data <= 5M
+	 * early_alloc range = 2M
+	 * memory: 24M
+	 */
+	. = ALIGN(SZ_32M);
+	__svisor_start = .;
+	.svisor.text : {
 		__svisor_text_start = .;
 		*(.svisor.text)
+		SVISOR_VECTORS_TEXT
+		. = ALIGN(SZ_2M);
 		__svisor_text_end = .;
 	}
 
@@ -254,8 +281,27 @@ SECTIONS
 		__svisor_data_end = .;
 	}
 
+	.svisor.bss (NOLOAD) : ALIGN(16) {
+		__svisor_bss_start__ = .;
+		*(.svisor.bss*)
+		__svisor_bss_end__ = .;
+	}
+
+	. = ALIGN(PAGE_SIZE);
+	__svisor_early_stack = .;
+	. += PAGE_SIZE;
+	__svisor_pg_dir = .;
+	. += PAGE_SIZE;
 	. = ALIGN(SZ_2M);
+	__svisor_early_alloc_base = .;
+	. += SZ_2M;
+
+	. = ALIGN(SZ_8M);
+	__svisor_mem_base = .;
+	. = ALIGN(SZ_32M);
+	__svisor_mem_end = .;
 	__svisor_end = .;
+#endif
 
 	STABS_DEBUG
 
