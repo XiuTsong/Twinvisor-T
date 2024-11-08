@@ -4,3 +4,4 @@
 #
 
 obj-y += smp.o
+obj-y += sched.o
