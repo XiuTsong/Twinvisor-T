@@ -4,3 +4,5 @@ out-br/
 toolchains/
 linux/compile_commands.json
 .gdbinit
+.cache/*
+build/compile_commands.json

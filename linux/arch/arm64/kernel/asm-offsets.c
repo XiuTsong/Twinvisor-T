@@ -34,6 +34,9 @@
 #include <asm/vdso_datapage.h>
 #include <linux/kbuild.h>
 #include <linux/arm-smccc.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/n-visor.h>
+#endif
 
 int main(void)
 {
@@ -168,6 +171,14 @@ int main(void)
 #ifdef CONFIG_ARM_SDE_INTERFACE
   DEFINE(SDEI_EVENT_INTREGS,	offsetof(struct sdei_registered_event, interrupted_regs));
   DEFINE(SDEI_EVENT_PRIORITY,	offsetof(struct sdei_registered_event, priority));
+#endif
+#ifdef CONFIG_S_VISOR
+  DEFINE(NVISOR_GP_REGS_OFFSET, offsetof(struct nvisor_state, gp_regs));
+  DEFINE(NVISOR_SP_OFFSET,	offsetof(struct nvisor_state, nvisor_sp));
+  DEFINE(SVISOR_SP_OFFSET,	offsetof(struct nvisor_state, svisor_sp));
+  DEFINE(NVISOR_HCR_OFFSET, offsetof(struct nvisor_state, hcr_el2));
+  DEFINE(NVISOR_VBAR_OFFSET, offsetof(struct nvisor_state, vbar_el2));
+  DEFINE(NVISOR_STATE_SIZE, sizeof(struct nvisor_state));
 #endif
   return 0;
 }
