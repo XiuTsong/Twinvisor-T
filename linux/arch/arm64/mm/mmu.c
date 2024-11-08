@@ -46,6 +46,10 @@
 #include <asm/mmu_context.h>
 #include <asm/ptdump.h>
 #include <asm/tlbflush.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/n-visor.h>
+#include <s-visor/mm/mmu.h>
+#endif
 
 #define NO_BLOCK_MAPPINGS	BIT(0)
 #define NO_CONT_MAPPINGS	BIT(1)
@@ -77,6 +81,34 @@ pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 	return vma_prot;
 }
 EXPORT_SYMBOL(phys_mem_access_prot);
+
+#ifdef CONFIG_S_VISOR
+
+#define SECURE_EARLY_ALLOC_NUM (SZ_2M / PAGE_SIZE)
+
+static bool secure_early_alloc_map[SECURE_EARLY_ALLOC_NUM];
+#define SECURE_ALLOC_BASE_PHYS __pa_symbol((unsigned long)__svisor_early_alloc_base)
+static phys_addr_t __init early_secure_alloc(void)
+{
+	phys_addr_t phys;
+	void *ptr;
+	uint64_t i;
+
+	for (i = 0U; i < SECURE_EARLY_ALLOC_NUM; i++) {
+		if (!secure_early_alloc_map[i]) {
+			secure_early_alloc_map[i] = true;
+			phys = SECURE_ALLOC_BASE_PHYS + i * PAGE_SIZE;
+			ptr = pte_set_fixmap(phys);
+			memset(ptr, 0, PAGE_SIZE);
+			pte_clear_fixmap();
+			return phys;
+		}
+	}
+
+	return 0;
+}
+
+#endif
 
 static phys_addr_t __init early_pgtable_alloc(void)
 {
@@ -491,6 +523,52 @@ static void __init map_mem(pgd_t *pgdp)
 	}
 #endif
 }
+
+#ifdef CONFIG_S_VISOR
+
+static void __init map_svisor_text(pgd_t *pgdp)
+{
+	unsigned long va_start = (unsigned long)__svisor_text_start;
+	unsigned long va_end = (unsigned long)__svisor_text_end;
+
+	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start, va_end - va_start,
+			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
+	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
+			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
+}
+
+static void __init map_svisor_other(pgd_t *pgdp)
+{
+	unsigned long va_start = (unsigned long)__svisor_data_start;
+	unsigned long va_end = (unsigned long)__svisor_end;
+
+	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start, va_end - va_start,
+			     PAGE_KERNEL, early_secure_alloc, 0);
+	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
+			     PAGE_KERNEL, early_secure_alloc, 0);
+}
+
+static void __init print_svisor_layout(void)
+{
+	pr_info("***** svisor .text start: %lx end: %lx\n", (unsigned long)__svisor_text_start, (unsigned long)__svisor_text_end);
+	pr_info("***** svisor .data start: %lx end: %lx\n", (unsigned long)__svisor_data_start, (unsigned long)__svisor_data_end);
+}
+
+void __init map_svisor(void)
+{
+	phys_addr_t pgd_phys;
+	pgd_t *pgdp = NULL;
+
+	print_svisor_layout();
+
+	pgd_phys = SECURE_PG_DIR_PHYS;
+	pgdp = pgd_set_fixmap(pgd_phys);
+	map_svisor_text(pgdp);
+	map_svisor_other(pgdp);
+	pgd_clear_fixmap();
+}
+
+#endif
 
 void mark_rodata_ro(void)
 {
