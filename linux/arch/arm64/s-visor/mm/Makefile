@@ -5,4 +5,5 @@
 
 obj-y += tlsf.o \
 	 	 page_allocator.o \
-		 buddy_allocator.o
+		 buddy_allocator.o \
+		 mm.o
