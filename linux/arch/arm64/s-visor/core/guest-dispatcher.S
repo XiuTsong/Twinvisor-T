@@ -1,3 +1,4 @@
+#include <asm/asm-offsets.h>
 #include <s-visor/common/asm.h>
 
 .macro save_args_to_vm ctxt
@@ -145,12 +146,39 @@ LOCAL_TITANIUM_ENTRY(vector_system_reset_entry)
         b  . 	/* SMC should not return */
 TITANIUM_ENTRY_END(vector_system_reset_entry)
 
+.globl	init_primary_core
+.globl	titanium_hyp_vector
+
 LOCAL_TITANIUM_ENTRY(vector_primary_core_entry)
-//        smc #0
-        nop
-	mrs	x0, CurrentEL
-        hvc #0
-        b  . 	/* SMC should not return */
+	msr spsel, #1
+	ldr x1, =global_titanium_states
+	mov x0, #0 // primary core id is 0
+	mov w2, #GLOBAL_TITANIUM_STATE_SIZE
+	umaddl x3, w0, w2, x1 // x3 = x1 + w0 * w2
+	msr tpidr_el1, x3
+	// store tpidr_el1 in global entry
+	ldr x1, =g_tpidr
+	mov w2, #8
+	umaddl x1, w0, w2, x1
+	str x3, [x1]
+	// install fault handlers
+	ldr x0, =titanium_hyp_vector
+	msr vbar_el1,x0
+	bl  init_primary_core
+	// set guest sys-regs the same as svisor
+	bl  set_guest_sys_regs
+	mrs     x9, tpidr_el1
+	add     x9, x9, #VCPU_CTX_OFFSET
+	add     x9, x9, #GUEST_GP_REGS_OFFSET
+	ldp	    x0, x1, [x9, #CPU_XREG_OFFSET(0)]
+	ldp	    x2, x3, [x9, #CPU_XREG_OFFSET(2)]
+	ldp	    x4, x5, [x9, #CPU_XREG_OFFSET(4)]
+	ldp	    x6, x7, [x9, #CPU_XREG_OFFSET(6)]
+	// mov x0, #TEESMC_VM_RETURN_ENTRY_DONE
+	// ldr x0, =0xbe000000
+	// adr x1, titanium_handler_table
+	// smc #0
+	hvc #0
 TITANIUM_ENTRY_END(vector_primary_core_entry)
 
 LOCAL_TITANIUM_ENTRY(vector_secondary_core_entry)
@@ -165,18 +193,18 @@ TITANIUM_ENTRY_END(vector_secondary_core_entry)
 TITANIUM_ENTRY(titanium_handler_table)
 	b	vector_std_smc_entry
 	b	vector_fast_smc_entry
-        b       vector_kvm_trap_smc_entry
-        b       vector_kvm_shared_memory_register_entry
-        b       vector_kvm_shared_memory_handle_entry
-        b       vector_cpu_on_entry
-        b       vector_cpu_off_entry
-        b       vector_cpu_resume_entry
-        b       vector_cpu_suspend_entry
+	b	vector_kvm_trap_smc_entry
+	b	vector_kvm_shared_memory_register_entry
+	b	vector_kvm_shared_memory_handle_entry
+	b	vector_cpu_on_entry
+	b	vector_cpu_off_entry
+	b	vector_cpu_resume_entry
+	b	vector_cpu_suspend_entry
 	b	vector_fiq_entry
-        b       vector_system_off_entry
-        b       vector_system_reset_entry
-        b       vector_primary_core_entry
-        b       vector_secondary_core_entry
+	b	vector_system_off_entry
+	b	vector_system_reset_entry
+	b	vector_primary_core_entry
+	b	vector_secondary_core_entry
 TITANIUM_ENTRY_END(titanium_handler_table)
 
 	.popsection
