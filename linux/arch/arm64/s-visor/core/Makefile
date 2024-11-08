@@ -5,3 +5,4 @@
 
 obj-y += guest-dispatcher.o
 obj-y += exception.o
+obj-y += guest-entry.o
