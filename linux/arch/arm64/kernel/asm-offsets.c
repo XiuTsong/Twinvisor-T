@@ -36,6 +36,7 @@
 #include <linux/arm-smccc.h>
 #ifdef CONFIG_S_VISOR
 #include <s-visor/n-visor.h>
+#include <s-visor/virt/vcpu.h>
 #endif
 
 int main(void)
@@ -179,6 +180,47 @@ int main(void)
   DEFINE(NVISOR_HCR_OFFSET, offsetof(struct nvisor_state, hcr_el2));
   DEFINE(NVISOR_VBAR_OFFSET, offsetof(struct nvisor_state, vbar_el2));
   DEFINE(NVISOR_STATE_SIZE, sizeof(struct nvisor_state));
+
+  DEFINE(GLOBAL_TITANIUM_STATE_SIZE, sizeof(struct titanium_state));
+  DEFINE(PER_CPU_STACK_SIZE, 4096);
+
+  DEFINE(HOST_STATE_OFFSET, asmoffsetof(struct titanium_state, host_state));
+  DEFINE(VCPU_CTX_OFFSET, asmoffsetof(struct titanium_state, current_vcpu_ctx));
+  DEFINE(RET_LR, asmoffsetof(struct titanium_state, ret_lr));
+
+  DEFINE(HOST_GP_REGS_OFFSET, asmoffsetof(struct titanium_host_regs, gp_regs));
+  DEFINE(HOST_SYS_REGS_OFFSET, asmoffsetof(struct titanium_host_regs, sys_regs));
+
+  DEFINE(GUEST_GP_REGS_OFFSET, asmoffsetof(struct vcpu_ctx, gp_regs));
+  DEFINE(GUEST_SYS_REGS_OFFSET, asmoffsetof(struct vcpu_ctx, sys_regs));
+
+  DEFINE(GP_LR_OFFSET, asmoffsetof(struct gp_regs, lr));
+  DEFINE(GP_PC_OFFSET, asmoffsetof(struct gp_regs, pc));
+
+  DEFINE(SYS_SPSR_OFFSET, asmoffsetof(struct sys_regs, spsr));
+  DEFINE(SYS_ELR_OFFSET, asmoffsetof(struct sys_regs, elr));
+  DEFINE(SYS_SCTLR_OFFSET, asmoffsetof(struct sys_regs, sctlr));
+  DEFINE(SYS_SP_OFFSET, asmoffsetof(struct sys_regs, sp));
+  DEFINE(SYS_SP_EL0_OFFSET, asmoffsetof(struct sys_regs, sp_el0));
+  DEFINE(SYS_ESR_OFFSET, asmoffsetof(struct sys_regs, esr));
+  DEFINE(SYS_VBAR_OFFSET, asmoffsetof(struct sys_regs, vbar));
+  DEFINE(SYS_TTBR0_OFFSET, asmoffsetof(struct sys_regs, ttbr0));
+  DEFINE(SYS_TTBR1_OFFSET, asmoffsetof(struct sys_regs, ttbr1));
+  DEFINE(SYS_MAIR_OFFSET, asmoffsetof(struct sys_regs, mair));
+  DEFINE(SYS_AMAIR_OFFSET, asmoffsetof(struct sys_regs, amair));
+  DEFINE(SYS_TCR_OFFSET, asmoffsetof(struct sys_regs, tcr));
+  DEFINE(SYS_TPIDR_OFFSET, asmoffsetof(struct sys_regs, tpidr));
+  DEFINE(SYS_FAR_OFFSET, asmoffsetof(struct sys_regs, far));
+
+  DEFINE(SHARED_MEM_OFFSET, asmoffsetof(struct titanium_state, shared_mem));
+  DEFINE(CURRENT_VM_OFFSET, asmoffsetof(struct titanium_state, current_vm));
+
+  DEFINE(ENTRY_HELPER_OFFSET, asmoffsetof(struct titanium_state, entry_helper));
+  DEFINE(GUEST_TTBR0_OFFSET, asmoffsetof(struct titanium_entry_helper, guest_ttbr0_el1));
+  DEFINE(GUEST_TTBR1_OFFSET, asmoffsetof(struct titanium_entry_helper, guest_ttbr1_el1));
+  DEFINE(JUMP_VBAR_OFFSET, asmoffsetof(struct titanium_entry_helper, jump_to_guest_vbar));
+
+  DEFINE(GUEST_VECTOR_OFFSET, asmoffsetof(struct sec_shm, guest_vector));
 #endif
   return 0;
 }
