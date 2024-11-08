@@ -63,6 +63,9 @@
 #include <asm/efi.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/n-visor.h>
+#endif
 
 static int num_standard_resources;
 static struct resource *standard_resources;
@@ -279,6 +282,17 @@ arch_initcall(reserve_memblock_reserved_regions);
 
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
 
+#ifdef CONFIG_S_VISOR
+
+/* For the first time, switch to svisor and make initialization */
+static void __init setup_svisor(void)
+{
+	map_svisor();
+
+	primary_switch_to_svisor();
+}
+#endif
+
 void __init setup_arch(char **cmdline_p)
 {
 	init_mm.start_code = (unsigned long) _text;
@@ -313,6 +327,10 @@ void __init setup_arch(char **cmdline_p)
 	arm64_memblock_init();
 
 	paging_init();
+
+#ifdef CONFIG_S_VISOR
+	setup_svisor();
+#endif
 
 	acpi_table_upgrade();
 
