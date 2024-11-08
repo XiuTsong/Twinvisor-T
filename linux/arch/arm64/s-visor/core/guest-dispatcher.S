@@ -148,9 +148,15 @@ TITANIUM_ENTRY_END(vector_system_reset_entry)
 
 .globl	init_primary_core
 .globl	titanium_hyp_vector
+.globl	__svisor_early_stack
 
 LOCAL_TITANIUM_ENTRY(vector_primary_core_entry)
 	msr spsel, #1
+    ldr x0, =__svisor_early_stack
+    ldr x1, =0x1000
+    add x0, x0, x1
+    mov sp, x0
+
 	ldr x1, =global_titanium_states
 	mov x0, #0 // primary core id is 0
 	mov w2, #GLOBAL_TITANIUM_STATE_SIZE
