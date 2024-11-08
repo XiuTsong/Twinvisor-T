@@ -4,3 +4,4 @@
 #
 
 obj-y += guest-dispatcher.o
+obj-y += exception.o
