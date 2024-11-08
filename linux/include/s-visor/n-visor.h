@@ -5,26 +5,7 @@
 #ifndef __SVISOR_NVISOR_H__
 #define __SVISOR_NVISOR_H__
 
-struct gp_regs {
-	unsigned long x[30];
-	unsigned long lr;
-	unsigned long pc;
-};
-
-struct sys_regs {
-	unsigned long spsr;
-	unsigned long elr;
-	unsigned long sctlr;
-	unsigned long sp;
-	unsigned long sp_el0;
-	unsigned long esr;
-	unsigned long vbar;
-	unsigned long mair;
-	unsigned long amair;
-	unsigned long tcr;
-	unsigned long tpidr;
-	unsigned long far;
-};
+#include <s-visor/common_defs.h>
 
 typedef unsigned int svisor_vector_isn_t;
 
