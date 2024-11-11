@@ -535,6 +535,9 @@ static void __init map_svisor_text(pgd_t *pgdp)
 			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
 	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
 			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
+	/* map kernel text for using lib functions */
+	__create_pgd_mapping(pgdp, __pa_symbol(_text), (unsigned long)_text, _etext - _text,
+			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
 }
 
 static void __init map_svisor_other(pgd_t *pgdp)
