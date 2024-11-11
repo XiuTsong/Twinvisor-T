@@ -4,5 +4,9 @@
 # Port from trusted-firmware-a
 #
 
+# Add -fno-stack-protector flag for all files in s-visor directory
+ccflags-y := -fno-stack-protector
+asflags-y := -fno-stack-protector
+
 obj-y += context.o
 

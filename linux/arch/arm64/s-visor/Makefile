@@ -3,6 +3,10 @@
 # Makefile for secure hypervisor module
 #
 
+# Add -fno-stack-protector flag for all files in s-visor directory
+ccflags-y := -fno-stack-protector
+asflags-y := -fno-stack-protector
+
 obj-y += n-visor.o
 obj-y += switch.o
 
