@@ -6,6 +6,7 @@
 #define __SVISOR_NVISOR_H__
 
 #include <s-visor/common_defs.h>
+#include <s-visor/lib/el3_runtime/context.h>
 
 typedef unsigned int svisor_vector_isn_t;
 
@@ -33,6 +34,7 @@ enum secure_state {
 
 struct nvisor_state {
 	struct gp_regs gp_regs;
+	el1_sysregs_t el1_sys_regs; // normal world el1 system registers
 	unsigned long nvisor_sp;
 	unsigned long svisor_sp;
 	unsigned long hcr_el2;
