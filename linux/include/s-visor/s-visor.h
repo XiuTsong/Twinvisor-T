@@ -8,11 +8,13 @@
 #include <linux/printk.h>
 #include <linux/string.h>
 
+#include <s-visor/common_defs.h>
+
 #define __secure_text	__section(.svisor.text)
 #define __secure_data	__section(.svisor.data)
 
-#define printf pr_info
+#define printf(fmt, ...)
 
-#define SVISOR_PHYSICAL_CORE_NUM 4
+#define SVISOR_DEBUG
 
 #endif

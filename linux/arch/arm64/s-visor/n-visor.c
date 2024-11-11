@@ -6,6 +6,7 @@
 #include <asm/sysreg.h>
 #include <asm/memory.h>
 #include <asm/kvm_asm.h>
+#include <linux/smp.h>
 
 #include <s-visor/n-visor.h>
 #include <s-visor/s-visor.h>
@@ -13,7 +14,9 @@
 #include <s-visor/arch/arm64/arch.h>
 #include <s-visor/mm/mmu.h>
 
+#ifdef SVISOR_DEBUG
 #pragma GCC optimize("O0")
+#endif
 
 struct nvisor_state global_nvisor_states[SVISOR_PHYSICAL_CORE_NUM];
 
@@ -26,17 +29,27 @@ struct nvisor_state *get_global_nvisor_state(unsigned int core_id)
 }
 
 extern unsigned long __switch_to_svisor(struct nvisor_state *state);
+extern void el1_sysregs_context_save(el1_sysregs_t *sys_regs);
+extern void el1_sysregs_context_restore(el1_sysregs_t *sys_regs);
 
 static void save_nvisor_state(struct nvisor_state *state)
 {
+	/* Save el2 states */
 	state->spsr_el2 = read_sysreg(spsr_el2);
 	state->elr_el2 = read_sysreg(elr_el2);
+
+	/* Save el1 sysregs */
+	el1_sysregs_context_save(&state->el1_sys_regs);
 }
 
 static void restore_nvisor_state(struct nvisor_state *state)
 {
+	/* Restore el2 states */
 	write_sysreg(state->spsr_el2, spsr_el2);
 	write_sysreg(state->elr_el2, elr_el2);
+
+	/* Restore el1 sysregs */
+	el1_sysregs_context_restore(&state->el1_sys_regs);
 }
 
 static inline void set_entry_context(enum secure_state secure_state,
@@ -77,9 +90,21 @@ static void setup_svisor_sysregs(void)
 	write_sysreg(read_sysreg(tcr_el2), tcr_el12);
 }
 
+static void clear_svisor_sysregs(void)
+{
+	write_sysreg(0, sctlr_el12);
+	write_sysreg(0, mair_el12);
+	write_sysreg(0, tcr_el12);
+}
+
+int nvisor_get_core_id(void)
+{
+	return smp_processor_id();
+}
+
 void switch_to_svisor(unsigned int imm)
 {
-	unsigned int core_id = get_core_id();
+	unsigned int core_id = nvisor_get_core_id();
 	struct nvisor_state *state = get_global_nvisor_state(core_id);
 
 	save_nvisor_state(state);
@@ -96,6 +121,11 @@ static void setup_svisor_pgtable(void)
 	write_sysreg(SECURE_PG_DIR_PHYS, ttbr1_el12);
 }
 
+static void clear_svisor_pgtable(void)
+{
+	write_sysreg(0, ttbr1_el12);
+}
+
 void primary_switch_to_svisor(void)
 {
 	/* The first time we switch to s-visor */
@@ -105,4 +135,7 @@ void primary_switch_to_svisor(void)
 	setup_svisor_pgtable();
 
 	switch_to_svisor(SMC_IMM_KVM_TO_TITANIUM_PRIMARY);
+
+	clear_svisor_pgtable();
+	clear_svisor_sysregs();
 }

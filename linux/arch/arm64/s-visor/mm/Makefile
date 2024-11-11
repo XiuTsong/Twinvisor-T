@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Makefile for secure hypervisor module: common
+# Makefile for secure hypervisor module: mm
 #
 
 # Add -fno-stack-protector flag for all files in s-visor directory
 ccflags-y := -fno-stack-protector
 asflags-y := -fno-stack-protector
 
-obj-y += aarch64/misc.o
-obj-y += aarch64/ticket-lock.o
+obj-y += tlsf.o \
+	 	 page_allocator.o \
+		 buddy_allocator.o \
+		 mm.o
