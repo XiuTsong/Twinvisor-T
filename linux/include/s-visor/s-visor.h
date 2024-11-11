@@ -13,6 +13,8 @@
 #define __secure_text	__section(.svisor.text)
 #define __secure_data	__section(.svisor.data)
 
-#define printf pr_info
+#define printf(fmt, ...)
+
+#define SVISOR_DEBUG
 
 #endif

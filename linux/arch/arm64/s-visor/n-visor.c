@@ -14,7 +14,9 @@
 #include <s-visor/arch/arm64/arch.h>
 #include <s-visor/mm/mmu.h>
 
+#ifdef SVISOR_DEBUG
 #pragma GCC optimize("O0")
+#endif
 
 struct nvisor_state global_nvisor_states[SVISOR_PHYSICAL_CORE_NUM];
 

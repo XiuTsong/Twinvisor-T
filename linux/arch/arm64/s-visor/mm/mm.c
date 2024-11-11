@@ -10,6 +10,10 @@
 #include <s-visor/mm/page_allocator.h>
 #include <s-visor/mm/mm.h>
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 uint64_t __secure_data current_cpu_stack_sps[SVISOR_PHYSICAL_CORE_NUM] = {0};
 
 vaddr_t __secure_text pa2va(paddr_t phys)

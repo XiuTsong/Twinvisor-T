@@ -9,6 +9,10 @@
 #include <s-visor/mm/buddy_allocator.h>
 #include <s-visor/s-visor.h>
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 #define LEAF_SIZE       PAGE_SIZE
 
 struct lock __secure_data secure_alloc_lock;

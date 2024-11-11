@@ -5,6 +5,10 @@
 #include <s-visor/s-visor.h>
 #include <s-visor/mm/tlsf.h>
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 #define assert(e)	((void)0)
 #define tlsf_decl static
 #define TLSF_64BIT
