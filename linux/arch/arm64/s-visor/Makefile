@@ -15,4 +15,4 @@ obj-y += sched/
 obj-y += core/
 obj-y += mm/
 obj-y += virt/
-obj-y += el3_runtime/
+obj-y += el3/

@@ -9,4 +9,4 @@ ccflags-y := -fno-stack-protector
 asflags-y := -fno-stack-protector
 
 obj-y += context.o
-
+obj-y += context_mgmt.o
