@@ -3,6 +3,7 @@
 #include <asm/kvm_arm.h>
 
 #include <s-visor/virt/registers-asm.h>
+#include <s-visor/arch/arm64/misc.h>
 
 .macro save_nvisor_gp_regs reg
 	add     \reg, \reg, #NVISOR_GP_REGS_OFFSET
@@ -51,9 +52,11 @@ ENTRY(__switch_to_svisor)
 	eret
 ENDPROC(__switch_to_svisor)
 
+.globl nvisor_get_core_id
+
 ENTRY(__switch_to_nvisor)
 	/* get core id */
-	bl __get_core_pos
+	__get_core_id x0, x1, x2
 
 	/* get &global_nvisor_states[core_id] */
     ldr x1, =global_nvisor_states
