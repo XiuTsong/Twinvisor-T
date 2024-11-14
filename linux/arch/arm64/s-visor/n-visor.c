@@ -28,10 +28,11 @@ extern char __el3_runtime_stack[];
 
 static void setup_el3_runtime_stack(void)
 {
+	uint64_t offset = (smp_processor_id() + 1) * PAGE_SIZE;
 	cpu_context_t *cpu_ctx = cm_get_next_context(NON_SECURE);
 	el3_state_t *el3_state = get_el3state_ctx(cpu_ctx);
 
-	write_ctx_reg(el3_state, CTX_RUNTIME_SP, (unsigned long)__el3_runtime_stack + PAGE_SIZE);
+	write_ctx_reg(el3_state, CTX_RUNTIME_SP, (unsigned long)__el3_runtime_stack + offset);
 }
 
 static void setup_svisor_sysregs(void)
@@ -54,12 +55,13 @@ static void setup_svisor_pgtable(void)
 
 extern void el3_context_init(void);
 
-static void setup_el3(void)
+static void setup_el3(bool is_primary)
 {
-	/* Clear tianium context */
-	el3_context_init();
+	if (is_primary) {
+		el3_context_init();
+		runtime_svc_init();
+	}
 	setup_el3_runtime_stack();
-	runtime_svc_init();
 }
 
 static void setup_titanium(void)
@@ -71,8 +73,17 @@ static void setup_titanium(void)
 void primary_switch_to_svisor(void)
 {
 	/* The first time we switch to s-visor */
-	setup_el3();
+	setup_el3(true);
 	setup_titanium();
 
 	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_PRIMARY);
+}
+
+void secondary_switch_to_svisor(void)
+{
+	/* The first time we switch to s-visor */
+	setup_el3(false);
+	setup_titanium();
+
+	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_SECONDARY);
 }

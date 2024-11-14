@@ -6,5 +6,6 @@
 #define __SVISOR_NVISOR_H__
 
 void primary_switch_to_svisor(void);
+void secondary_switch_to_svisor(void);
 
 #endif
