@@ -37,6 +37,7 @@
 #ifdef CONFIG_S_VISOR
 #include <s-visor/n-visor.h>
 #include <s-visor/virt/vcpu.h>
+#include <s-visor/lib/el3_runtime/context.h>
 #endif
 
 int main(void)
@@ -221,6 +222,14 @@ int main(void)
   DEFINE(JUMP_VBAR_OFFSET, asmoffsetof(struct titanium_entry_helper, jump_to_guest_vbar));
 
   DEFINE(GUEST_VECTOR_OFFSET, asmoffsetof(struct sec_shm, guest_vector));
+
+  /* el3 regs offset */
+  DEFINE(CTX_GPREGS_OFFSET, asmoffsetof(cpu_context_t, gpregs_ctx));
+  DEFINE(CTX_EL3STATE_OFFSET, asmoffsetof(cpu_context_t, el3_state_ctx));
+  DEFINE(CTX_EL1_SYSREGS_OFFSET, asmoffsetof(cpu_context_t, el1_sysregs_ctx));
+  DEFINE(CTX_EL2_SYSREGS_OFFSET, asmoffsetof(cpu_context_t, el2_sysregs_ctx));
+  DEFINE(TITANIUM_CONTEXT_SIZE, sizeof(titanium_context_t));
+  DEFINE(CPU_CONTEXT_OFFSET, asmoffsetof(titanium_context_t, cpu_ctx));
 #endif
   return 0;
 }
