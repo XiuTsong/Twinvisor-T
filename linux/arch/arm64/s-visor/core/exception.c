@@ -8,6 +8,7 @@
 #include <s-visor/common_defs.h>
 #include <s-visor/virt/vmexit_def.h>
 #include <s-visor/virt/vm.h>
+#include <s-visor/lib/stdint.h>
 
 void el1h_sync_handler(u_register_t esr_el1)
 {

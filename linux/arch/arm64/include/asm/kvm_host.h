@@ -33,6 +33,10 @@
 #include <asm/kvm_mmio.h>
 #include <asm/thread_info.h>
 
+#ifdef CONFIG_S_VISOR
+#include <s-visor/virt/kvm_host_common.h>
+#include <s-visor/el3/titanium_private.h>
+#else
 #define SMC_IMM_KVM_TO_TITANIUM_TRAP 0x1
 #define SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_REGISTER 0x10
 #define SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_HANDLE 0x18
@@ -82,6 +86,7 @@ typedef struct {
         /* No extra info for SHUTDOWN */;
     };
 } kvm_smc_req_t;
+#endif
 
 void flush_titanium_shadow_page_tables(void);
 void trap_titanium_enter_guest(struct kvm_vcpu *vcpu);
