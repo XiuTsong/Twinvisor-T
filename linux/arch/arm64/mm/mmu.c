@@ -655,6 +655,9 @@ static void __init map_kernel(pgd_t *pgdp)
 {
 	static struct vm_struct vmlinux_text, vmlinux_rodata, vmlinux_inittext,
 				vmlinux_initdata, vmlinux_data;
+#ifdef CONFIG_S_VISOR
+	static struct vm_struct el3_text, el3_data;
+#endif
 
 	/*
 	 * External debuggers may need to write directly to the text
@@ -676,6 +679,11 @@ static void __init map_kernel(pgd_t *pgdp)
 	map_kernel_segment(pgdp, __initdata_begin, __initdata_end, PAGE_KERNEL,
 			   &vmlinux_initdata, 0, VM_NO_GUARD);
 	map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+#ifdef CONFIG_S_VISOR
+	/* Currently, we allow n-visor to touch el3 directly */
+	map_kernel_segment(pgdp, __el3_text_start, __el3_text_end, text_prot, &el3_text, 0, VM_NO_GUARD);
+	map_kernel_segment(pgdp, __el3_data_start, __el3_data_end, PAGE_KERNEL, &el3_data, 0, VM_NO_GUARD);
+#endif
 
 	if (!READ_ONCE(pgd_val(*pgd_offset_raw(pgdp, FIXADDR_START)))) {
 		/*

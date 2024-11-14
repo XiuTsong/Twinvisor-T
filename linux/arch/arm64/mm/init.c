@@ -464,6 +464,7 @@ void __init arm64_memblock_init(void)
 	memblock_reserve(__pa_symbol(_text), _end - _text);
 #ifdef CONFIG_S_VISOR
 	memblock_reserve(__pa_symbol(__svisor_start), __svisor_end - __svisor_start);
+	memblock_reserve(__pa_symbol(__el3_start), __el3_end - __el3_start);
 #endif
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start) {
