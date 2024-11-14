@@ -16,6 +16,29 @@
 #include <s-visor/el3/ep_info.h>
 
 #pragma GCC optimize("O0")
+
+/*******************************************************************************
+ * This function returns a pointer to the 'cpu_context' structure by CPU index.
+ * NULL is returned if no such structure has been specified.
+ ******************************************************************************/
+__el3_text void *cm_get_context_by_index(uint32_t cpu_idx, uint32_t security_state)
+{
+	assert(security_state <= NON_SECURE);
+
+	return get_cpu_data_by_index(cpu_idx, cpu_context[security_state]);
+}
+
+/*******************************************************************************
+ * This function sets the pointer to the 'cpu_context' structure for the
+ * specified security state by CPU index.
+ ******************************************************************************/
+void cm_set_context_by_index(uint32_t cpu_idx, void *context, uint32_t security_state)
+{
+	assert(security_state <= NON_SECURE);
+
+	set_cpu_data_by_index(cpu_idx, cpu_context[security_state], context);
+}
+
 /*******************************************************************************
  * This function returns a pointer to the most recent 'cpu_context' structure
  * for the calling CPU that was set as the context for the specified security

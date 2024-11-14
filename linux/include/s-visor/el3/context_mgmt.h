@@ -9,6 +9,8 @@
 /*******************************************************************************
  * Function & variable prototypes
  ******************************************************************************/
+void *cm_get_context_by_index(uint32_t cpu_idx, uint32_t security_state);
+void cm_set_context_by_index(uint32_t cpu_idx, void *context, uint32_t security_state);
 void *cm_get_context(uint32_t security_state);
 void cm_set_context(void *context, uint32_t security_state);
 

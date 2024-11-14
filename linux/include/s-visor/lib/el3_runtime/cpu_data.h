@@ -49,6 +49,11 @@ static inline struct cpu_data *_cpu_data(void)
 	return (cpu_data_t *)&percpu_data[plat_my_core_pos()];
 }
 
+static inline struct cpu_data *_cpu_data_by_index(unsigned int cpu_index)
+{
+	return (cpu_data_t *)&percpu_data[cpu_index];
+}
+
 /**************************************************************************
  * APIs for initialising and accessing per-cpu data
  *************************************************************************/
