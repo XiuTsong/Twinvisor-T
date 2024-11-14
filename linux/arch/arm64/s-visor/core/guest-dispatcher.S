@@ -150,6 +150,7 @@ LOCAL_TITANIUM_ENTRY(vector_system_reset_entry)
 TITANIUM_ENTRY_END(vector_system_reset_entry)
 
 .globl	init_primary_core
+.globl	init_secondary_core
 .globl	titanium_hyp_vector
 .globl	__svisor_early_stack
 
@@ -190,9 +191,33 @@ LOCAL_TITANIUM_ENTRY(vector_primary_core_entry)
 	__smc #SMC_IMM_TITANIUM_TO_KVM_RETURN
 TITANIUM_ENTRY_END(vector_primary_core_entry)
 
+/* In Twinvisor emulation, we use this entry instead of vector_cpu_on_entry */
 LOCAL_TITANIUM_ENTRY(vector_secondary_core_entry)
-//        smc #0
-        b  . 	/* SMC should not return */
+	/* Prepare stack */
+	bl	__get_core_pos
+	ldr	x1, =current_cpu_stack_sps
+	mov	w2, #8
+	umaddl	x1, w0, w2, x1  // x0 = x1 + w0 * w2
+	ldr	x1, [x1]
+	mov	sp, x1
+
+	/* Prepare global_titanium_states and g_tpidr */
+	ldr x1, =global_titanium_states
+	mov w2, #GLOBAL_TITANIUM_STATE_SIZE
+	umaddl x3, w0, w2, x1  // x3 = x1 + w0 * w2
+	msr tpidr_el1, x3
+	ldr x1, =g_tpidr
+	mov w2, #8
+	umaddl x1, w0, w2, x1
+	str x3, [x1]
+
+	/* install fault handlers */
+	ldr x0, =titanium_hyp_vector
+	msr vbar_el1,x0
+
+	bl init_secondary_core
+
+	__smc #SMC_IMM_TITANIUM_TO_KVM_RETURN
 TITANIUM_ENTRY_END(vector_secondary_core_entry)
 
 	.popsection
