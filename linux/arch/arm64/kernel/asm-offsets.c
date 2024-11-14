@@ -35,9 +35,9 @@
 #include <linux/kbuild.h>
 #include <linux/arm-smccc.h>
 #ifdef CONFIG_S_VISOR
-#include <s-visor/n-visor.h>
 #include <s-visor/virt/vcpu.h>
 #include <s-visor/lib/el3_runtime/context.h>
+#include <s-visor/el3/titanium_private.h>
 #endif
 
 int main(void)
@@ -175,13 +175,6 @@ int main(void)
   DEFINE(SDEI_EVENT_PRIORITY,	offsetof(struct sdei_registered_event, priority));
 #endif
 #ifdef CONFIG_S_VISOR
-  DEFINE(NVISOR_GP_REGS_OFFSET, offsetof(struct nvisor_state, gp_regs));
-  DEFINE(NVISOR_SP_OFFSET,	offsetof(struct nvisor_state, nvisor_sp));
-  DEFINE(SVISOR_SP_OFFSET,	offsetof(struct nvisor_state, svisor_sp));
-  DEFINE(NVISOR_HCR_OFFSET, offsetof(struct nvisor_state, hcr_el2));
-  DEFINE(NVISOR_VBAR_OFFSET, offsetof(struct nvisor_state, vbar_el2));
-  DEFINE(NVISOR_STATE_SIZE, sizeof(struct nvisor_state));
-
   DEFINE(GLOBAL_TITANIUM_STATE_SIZE, sizeof(struct titanium_state));
   DEFINE(PER_CPU_STACK_SIZE, 4096);
 
