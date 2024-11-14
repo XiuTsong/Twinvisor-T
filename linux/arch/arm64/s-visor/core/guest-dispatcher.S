@@ -1,6 +1,9 @@
 #include <asm/asm-offsets.h>
 #include <s-visor/common/asm.h>
 
+#include <s-visor/lib/el3_runtime/smc.h>
+#include <s-visor/el3/titanium_private.h>
+
 .macro save_args_to_vm ctxt
 	stp	x0, x1,   [\ctxt, #CPU_XREG_OFFSET(0)]
 	stp	x2, x3,   [\ctxt, #CPU_XREG_OFFSET(2)]
@@ -184,7 +187,7 @@ LOCAL_TITANIUM_ENTRY(vector_primary_core_entry)
 	// ldr x0, =0xbe000000
 	// adr x1, titanium_handler_table
 	// smc #0
-	hvc #0
+	__smc #SMC_IMM_TITANIUM_TO_KVM_RETURN
 TITANIUM_ENTRY_END(vector_primary_core_entry)
 
 LOCAL_TITANIUM_ENTRY(vector_secondary_core_entry)

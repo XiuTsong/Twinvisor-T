@@ -259,10 +259,34 @@ SECTIONS
 	_end = .;
 
 #ifdef CONFIG_S_VISOR
+	. = ALIGN(SZ_2M);
+	__el3_start = .;
+	.el3.text : {
+		__el3_text_start = .;
+		*(.el3.text)
+		. = ALIGN(PAGE_SIZE);
+		__el3_vector_base = .;
+		*(.el3_vectors.text)
+		. = ALIGN(SZ_2M);
+		__el3_text_end = .;
+	}
+	.el3.data : {
+		__el3_data_start = .;
+		. = ALIGN(PAGE_SIZE);
+		__el3_runtime_stack = .;
+		. += PAGE_SIZE;
+		__RT_SVC_DESCS_START__ = .;
+		*(.el3_rt_svc_descs.data)
+		__RT_SVC_DESCS_END__ = .;
+		*(.el3.data)
+		. = ALIGN(SZ_2M);
+		__el3_data_end = .;
+	}
+	__el3_end = .;
 	/* svisor section
 	 * Total size: 32M
 	 * .text + .data <= 5M
-	 * early_alloc range = 2M
+	 * early_alloc range = 128K
 	 * memory: 24M
 	 */
 	. = ALIGN(SZ_32M);
@@ -275,7 +299,7 @@ SECTIONS
 		__svisor_text_end = .;
 	}
 
-	.svisor.data : ALIGN(PAGE_SIZE) {
+	.svisor.data : ALIGN(SZ_2M) {
 		__svisor_data_start = .;
 		*(.svisor.data)
 		__svisor_data_end = .;
@@ -294,11 +318,11 @@ SECTIONS
 	. += PAGE_SIZE;
 	. = ALIGN(SZ_2M);
 	__svisor_early_alloc_base = .;
-	. += SZ_2M;
+	. += SZ_128K;
 
 	. = ALIGN(SZ_8M);
 	__svisor_mem_base = .;
-	. = ALIGN(SZ_32M);
+	. += SZ_16M + SZ_8M;
 	__svisor_mem_end = .;
 	__svisor_end = .;
 #endif

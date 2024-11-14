@@ -8,6 +8,8 @@
 
 #define SVISOR_PHYSICAL_CORE_NUM 4
 
+#ifndef __ASSEMBLER__
+
 struct gp_regs {
 	unsigned long x[30];
 	unsigned long lr;
@@ -32,5 +34,7 @@ struct sys_regs {
 };
 
 typedef unsigned long u_register_t;
+
+#endif
 
 #endif

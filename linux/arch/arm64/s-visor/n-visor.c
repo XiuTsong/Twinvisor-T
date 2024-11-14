@@ -13,129 +13,66 @@
 #include <s-visor/sched/smp.h>
 #include <s-visor/arch/arm64/arch.h>
 #include <s-visor/mm/mmu.h>
+#include <s-visor/lib/el3_runtime/context.h>
+#include <s-visor/lib/el3_runtime/smc.h>
+#include <s-visor/el3/titanium_private.h>
+#include <s-visor/el3/context_mgmt.h>
+#include <s-visor/el3/runtime_svc.h>
+#include <s-visor/el3/ep_info.h>
 
 #ifdef SVISOR_DEBUG
 #pragma GCC optimize("O0")
 #endif
 
-struct nvisor_state global_nvisor_states[SVISOR_PHYSICAL_CORE_NUM];
+extern char __el3_runtime_stack[];
 
-/* Address of the entrypoint vector table in s-visor. */
-struct svisor_handler *svisor_handler_table;
-
-struct nvisor_state *get_global_nvisor_state(unsigned int core_id)
+static void setup_el3_runtime_stack(void)
 {
-	return &global_nvisor_states[core_id];
-}
+	cpu_context_t *cpu_ctx = cm_get_next_context(NON_SECURE);
+	el3_state_t *el3_state = get_el3state_ctx(cpu_ctx);
 
-extern unsigned long __switch_to_svisor(struct nvisor_state *state);
-extern void el1_sysregs_context_save(el1_sysregs_t *sys_regs);
-extern void el1_sysregs_context_restore(el1_sysregs_t *sys_regs);
-
-static void save_nvisor_state(struct nvisor_state *state)
-{
-	/* Save el2 states */
-	state->spsr_el2 = read_sysreg(spsr_el2);
-	state->elr_el2 = read_sysreg(elr_el2);
-
-	/* Save el1 sysregs */
-	el1_sysregs_context_save(&state->el1_sys_regs);
-}
-
-static void restore_nvisor_state(struct nvisor_state *state)
-{
-	/* Restore el2 states */
-	write_sysreg(state->spsr_el2, spsr_el2);
-	write_sysreg(state->elr_el2, elr_el2);
-
-	/* Restore el1 sysregs */
-	el1_sysregs_context_restore(&state->el1_sys_regs);
-}
-
-static inline void set_entry_context(enum secure_state secure_state,
-				     				 unsigned long entrypoint)
-{
-	if (secure_state == SECURE) {
-		write_sysreg(entrypoint, elr_el2);
-		write_sysreg(SPSR_64(MODE_EL1, MODE_SP_ELX,
-				     DISABLE_ALL_EXCEPTIONS),
-			     	 spsr_el2);
-	}
-}
-
-extern char __svisor_early_stack[];
-
-static inline void set_early_stack(struct nvisor_state *state)
-{
-	state->svisor_sp = (unsigned long)__svisor_early_stack;
-}
-
-static void handle_switch_from_nvisor(struct nvisor_state *state, unsigned int imm)
-{
-	switch (imm) {
-	case SMC_IMM_KVM_TO_TITANIUM_PRIMARY:
-		set_early_stack(state);
-		set_entry_context(SECURE,
-						(unsigned long)&svisor_handler_table->primary_core_entry);
-		break;
-	default:
-		break;
-	}
+	write_ctx_reg(el3_state, CTX_RUNTIME_SP, (unsigned long)__el3_runtime_stack + PAGE_SIZE);
 }
 
 static void setup_svisor_sysregs(void)
 {
-	write_sysreg(read_sysreg(sctlr_el2), sctlr_el12);
-	write_sysreg(read_sysreg(mair_el2), mair_el12);
-	write_sysreg(read_sysreg(tcr_el2), tcr_el12);
-}
+	cpu_context_t *cpu_ctx = cm_get_next_context(SECURE);
+	el1_sysregs_t *el1_sys_regs = get_el1_sysregs_ctx(cpu_ctx);
 
-static void clear_svisor_sysregs(void)
-{
-	write_sysreg(0, sctlr_el12);
-	write_sysreg(0, mair_el12);
-	write_sysreg(0, tcr_el12);
-}
-
-int nvisor_get_core_id(void)
-{
-	return smp_processor_id();
-}
-
-void switch_to_svisor(unsigned int imm)
-{
-	unsigned int core_id = nvisor_get_core_id();
-	struct nvisor_state *state = get_global_nvisor_state(core_id);
-
-	save_nvisor_state(state);
-	handle_switch_from_nvisor(state, imm);
-
-	/* Here we switch to s-visor */
-	__switch_to_svisor(state);
-
-	restore_nvisor_state(state);
+	write_ctx_reg(el1_sys_regs, CTX_SCTLR_EL1, read_sysreg(sctlr_el2));
+	write_ctx_reg(el1_sys_regs, CTX_MAIR_EL1, read_sysreg(mair_el2));
+	write_ctx_reg(el1_sys_regs, CTX_TCR_EL1, read_sysreg(tcr_el2));
 }
 
 static void setup_svisor_pgtable(void)
 {
-	write_sysreg(SECURE_PG_DIR_PHYS, ttbr1_el12);
+	cpu_context_t *cpu_ctx = cm_get_next_context(SECURE);
+	el1_sysregs_t *el1_sys_regs = get_el1_sysregs_ctx(cpu_ctx);
+
+	write_ctx_reg(el1_sys_regs, CTX_TTBR1_EL1, SECURE_PG_DIR_PHYS);
 }
 
-static void clear_svisor_pgtable(void)
+extern void el3_context_init(void);
+
+static void setup_el3(void)
 {
-	write_sysreg(0, ttbr1_el12);
+	/* Clear tianium context */
+	el3_context_init();
+	setup_el3_runtime_stack();
+	runtime_svc_init();
+}
+
+static void setup_titanium(void)
+{
+	setup_svisor_sysregs();
+	setup_svisor_pgtable();
 }
 
 void primary_switch_to_svisor(void)
 {
 	/* The first time we switch to s-visor */
-	svisor_handler_table = (struct svisor_handler *)__svisor_handler;
+	setup_el3();
+	setup_titanium();
 
-	setup_svisor_sysregs();
-	setup_svisor_pgtable();
-
-	switch_to_svisor(SMC_IMM_KVM_TO_TITANIUM_PRIMARY);
-
-	clear_svisor_pgtable();
-	clear_svisor_sysregs();
+	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_PRIMARY);
 }

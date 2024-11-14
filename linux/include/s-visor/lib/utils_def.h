@@ -6,6 +6,7 @@
 #define __SVISOR_UTILS_DEF_H__
 
 #include <linux/bits.h>
+#include <linux/const.h>
 
 /* Compute the number of elements in the given array */
 #define IS_POWER_OF_TWO(x)			\
@@ -112,8 +113,8 @@
 */
 #if defined(__LINKER__) || defined(__ASSEMBLY__)
 # define   U(_x)	(_x)
-# define  UL(_x)	(_x)
-# define ULL(_x)	(_x)
+// # define  UL(_x)	(_x)
+// # define ULL(_x)	(_x)
 # define   L(_x)	(_x)
 # define  LL(_x)	(_x)
 #else

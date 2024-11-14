@@ -8,6 +8,8 @@
 #include <s-visor/common/asm.h>
 #include <s-visor/arch/arm64/arch.h>
 
+#ifdef __ASSEMBLER__
+
 .macro __get_core_id reg0, reg1, reg2
 	mrs	\reg0, mpidr_el1
 	tst	\reg0, #MPIDR_MT_MASK
@@ -18,5 +20,7 @@
 	add	\reg0, \reg0, \reg1, LSL #2
         /* core_id == \ref0 */
 .endm
+
+#endif
 
 #endif

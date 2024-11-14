@@ -5,6 +5,11 @@
 #ifndef __SVISOR_ASM_H__
 #define __SVISOR_ASM_H__
 
+#ifdef __ASSEMBLER__
+
+#include <linux/linkage.h>
+#include <asm/assembler.h>
+
 #define BEGIN_FUNC(_name)  \
     .global     _name;  \
     .type       _name, @function;       \
@@ -24,18 +29,10 @@ _name:
 
 #define __ALIGN     .align 2
 
-#define ENTRY(_name)    \
-    .global     _name;        \
-_name:
-
 #define ENTRY_4K(_name)    \
     .global     _name;        \
 	.balign	4096; \
 _name:
-
-#define ENDPROC(_name)  \
-    .type       _name, @function; \
-    .size       _name, . - _name
 
 #define TITANIUM_ENTRY(_name) \
     .global     _name; \
@@ -117,5 +114,7 @@ finished_\op:
 	dsb     sy
 	isb
 .endm
+
+#endif
 
 #endif
