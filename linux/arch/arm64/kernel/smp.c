@@ -59,6 +59,9 @@
 #include <asm/tlbflush.h>
 #include <asm/ptrace.h>
 #include <asm/virt.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/n-visor.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -209,6 +212,10 @@ asmlinkage notrace void secondary_start_kernel(void)
 
 	preempt_disable();
 	trace_hardirqs_off();
+
+#ifdef CONFIG_S_VISOR
+	secondary_switch_to_svisor();
+#endif
 
 	/*
 	 * If the system has established the capabilities, make sure

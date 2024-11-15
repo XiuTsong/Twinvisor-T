@@ -12,6 +12,9 @@
 #include <asm/memory.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/common_defs.h>
+#endif
 
 #include "image.h"
 
@@ -274,7 +277,7 @@ SECTIONS
 		__el3_data_start = .;
 		. = ALIGN(PAGE_SIZE);
 		__el3_runtime_stack = .;
-		. += PAGE_SIZE;
+		. += PAGE_SIZE * SVISOR_PHYSICAL_CORE_NUM;
 		__RT_SVC_DESCS_START__ = .;
 		*(.el3_rt_svc_descs.data)
 		__RT_SVC_DESCS_END__ = .;

@@ -91,7 +91,11 @@ struct vgic_global {
 extern struct vgic_global kvm_vgic_global_state;
 
 #define VGIC_V2_MAX_LRS		(1 << 6)
+#ifdef CONFIG_S_VISOR
+#include <s-visor/virt/arm_vgic_common.h>
+#else
 #define VGIC_V3_MAX_LRS		16
+#endif
 #define VGIC_V3_LR_INDEX(lr)	(VGIC_V3_MAX_LRS - 1 - lr)
 
 enum vgic_irq_config {

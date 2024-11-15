@@ -121,14 +121,12 @@ void __el3_text el3_context_init(void)
 
 static int32_t __el3_text titanium_setup(void)
 {
-	uint32_t linear_id = plat_my_core_pos();
-	titanium_context_t *secure_context = &titanium_secure_context[linear_id];
-	titanium_context_t *non_secure_context = &titanium_non_secure_context[linear_id];
+	uint32_t idx;
 
-	/* In Twinvisor emulation, we will enter el3 from non-secure for the first time */
-	cm_set_context(&secure_context->cpu_ctx, SECURE);
-	cm_set_context(&non_secure_context->cpu_ctx, NON_SECURE);
-
+	for (idx = 0U; idx < TITANIUM_CORE_COUNT; idx++) {
+		cm_set_context_by_index(idx, &titanium_secure_context[idx].cpu_ctx, SECURE);
+		cm_set_context_by_index(idx, &titanium_non_secure_context[idx].cpu_ctx, NON_SECURE);
+	}
 	titanium_vector_table = (struct titanium_vectors *)__svisor_handler;
 
 	return 0;
@@ -202,6 +200,11 @@ static uintptr_t __el3_text titanium_smc_handler(uint32_t smc_fid,
 									(uint64_t)&titanium_vector_table->primary_core_entry,
 									SPSR_64(MODE_EL1, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS));
 				break;
+			case SMC_IMM_KVM_TO_TITANIUM_SECONDARY:
+				cm_set_elr_spsr_el3(SECURE,
+									(uint64_t)&titanium_vector_table->secondary_core_entry,
+									SPSR_64(MODE_EL1, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS));
+				break;
 			case SMC_IMM_KVM_TO_TITANIUM_TRAP:
 				if (!is_fixup_vttbr[linear_id]) {
 					cm_set_elr_el3(SECURE,
@@ -231,6 +234,13 @@ static uintptr_t __el3_text titanium_smc_handler(uint32_t smc_fid,
 
 		switch (smc_imm) {
 			case SMC_IMM_KVM_TO_TITANIUM_PRIMARY:
+				/*
+				* Pass vp_offset to x0.
+				* See n-visor.c:primary_switch_to_svisor()
+				*/
+				write_ctx_reg(get_gpregs_ctx(&titanium_ctx->cpu_ctx), CTX_GPREG_X1,
+							  read_ctx_reg(get_gpregs_ctx(handle), CTX_GPREG_X1));
+				break;
 			case SMC_IMM_KVM_TO_TITANIUM_SECONDARY:
 				break;
 			case SMC_IMM_KVM_TO_TITANIUM_TRAP:

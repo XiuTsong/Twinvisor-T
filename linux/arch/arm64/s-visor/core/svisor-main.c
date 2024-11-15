@@ -24,14 +24,21 @@ int __secure_text init_primary_core(void)
 //    tzc_configure_region(0, 3, 0, 0, 0, 0);
 //    tzc_enable_filters();
 
-    /* Use virtual memory and initialize buddy and slab allocators*/
+	/* Use virtual memory and initialize buddy and slab allocators*/
 	mm_primary_init();
 
-    /*Sched init */
+	/*Sched init */
 	tianium_vm_sched_init();
 
-    /* Enable virtualization function */
-    init_vms();
+	/* Enable virtualization function */
+	init_vms();
+
+	return 0;
+}
+
+int __secure_text init_secondary_core(void)
+{
+	mm_secondary_init();
 
 	return 0;
 }

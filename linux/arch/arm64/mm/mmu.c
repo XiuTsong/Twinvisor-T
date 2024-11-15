@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "asm-generic/sections.h"
 #include <linux/cache.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
@@ -526,18 +527,20 @@ static void __init map_mem(pgd_t *pgdp)
 
 #ifdef CONFIG_S_VISOR
 
+unsigned long vp_offset;
+
 static void __init map_svisor_text(pgd_t *pgdp)
 {
 	unsigned long va_start = (unsigned long)__svisor_text_start;
 	unsigned long va_end = (unsigned long)__svisor_text_end;
+	unsigned long va_start_phys = __pa_symbol(va_start);
 
-	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start, va_end - va_start,
-			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
-	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
-			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
-	/* map kernel text for using lib functions */
+	vp_offset = va_start - va_start_phys;
+	__create_pgd_mapping(pgdp, va_start_phys, va_start, va_end - va_start,
+						 PAGE_KERNEL_ROX, early_secure_alloc, 0);
+	/* Map kernel text for using lib functions */
 	__create_pgd_mapping(pgdp, __pa_symbol(_text), (unsigned long)_text, _etext - _text,
-			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
+						 PAGE_KERNEL_ROX, early_secure_alloc, 0);
 }
 
 static void __init map_svisor_other(pgd_t *pgdp)
@@ -545,10 +548,16 @@ static void __init map_svisor_other(pgd_t *pgdp)
 	unsigned long va_start = (unsigned long)__svisor_data_start;
 	unsigned long va_end = (unsigned long)__svisor_end;
 
-	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start, va_end - va_start,
-			     PAGE_KERNEL, early_secure_alloc, 0);
-	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
-			     PAGE_KERNEL, early_secure_alloc, 0);
+	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start,
+						 va_end - va_start,
+						 PAGE_KERNEL, early_secure_alloc, 0);
+	/* Map kernel data for accessing shared memory */
+	__create_pgd_mapping(pgdp, __pa_symbol(__start_rodata), (unsigned long)__start_rodata,
+						 __inittext_begin - __start_rodata,
+						 PAGE_KERNEL, early_secure_alloc, NO_CONT_MAPPINGS);
+	__create_pgd_mapping(pgdp, __pa_symbol(_data), (unsigned long)_data,
+						 _end - _data,
+						 PAGE_KERNEL, early_secure_alloc, 0);
 }
 
 static void __init print_svisor_layout(void)
