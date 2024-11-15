@@ -15,17 +15,7 @@
 #endif
 
 uint64_t __secure_data current_cpu_stack_sps[SVISOR_PHYSICAL_CORE_NUM] = {0};
-
-vaddr_t __secure_text pa2va(paddr_t phys)
-{
-	return (vaddr_t)__phys_to_virt(phys);
-}
-
-paddr_t __secure_text va2pa(vaddr_t virt)
-{
-	return (paddr_t)__virt_to_phys(virt);
-}
-
+unsigned long __secure_data linux_vp_offset = -1;
 
 static void __secure_text init_percpu_stack(void)
 {

@@ -526,14 +526,16 @@ static void __init map_mem(pgd_t *pgdp)
 
 #ifdef CONFIG_S_VISOR
 
+unsigned long vp_offset;
+
 static void __init map_svisor_text(pgd_t *pgdp)
 {
 	unsigned long va_start = (unsigned long)__svisor_text_start;
 	unsigned long va_end = (unsigned long)__svisor_text_end;
+	unsigned long va_start_phys = __pa_symbol(va_start);
 
-	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start, va_end - va_start,
-			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
-	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
+	vp_offset = va_start - va_start_phys;
+	__create_pgd_mapping(pgdp, va_start_phys, va_start, va_end - va_start,
 			     PAGE_KERNEL_ROX, early_secure_alloc, 0);
 	/* map kernel text for using lib functions */
 	__create_pgd_mapping(pgdp, __pa_symbol(_text), (unsigned long)_text, _etext - _text,
@@ -546,8 +548,6 @@ static void __init map_svisor_other(pgd_t *pgdp)
 	unsigned long va_end = (unsigned long)__svisor_end;
 
 	__create_pgd_mapping(pgdp, __pa_symbol(va_start), va_start, va_end - va_start,
-			     PAGE_KERNEL, early_secure_alloc, 0);
-	__create_pgd_mapping(pgdp, __phys_to_virt(va_start), va_start, va_end - va_start,
 			     PAGE_KERNEL, early_secure_alloc, 0);
 }
 

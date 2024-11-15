@@ -70,13 +70,15 @@ static void setup_titanium(void)
 	setup_svisor_pgtable();
 }
 
+extern unsigned long vp_offset;
+
 void primary_switch_to_svisor(void)
 {
 	/* The first time we switch to s-visor */
 	setup_el3(true);
 	setup_titanium();
 
-	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_PRIMARY);
+	nvisor_smc_1(SMC_IMM_KVM_TO_TITANIUM_PRIMARY, vp_offset);
 }
 
 void secondary_switch_to_svisor(void)

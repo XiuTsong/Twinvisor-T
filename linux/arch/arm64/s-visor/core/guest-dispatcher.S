@@ -1,6 +1,6 @@
 #include <asm/asm-offsets.h>
-#include <s-visor/common/asm.h>
 
+#include <s-visor/common/asm.h>
 #include <s-visor/lib/el3_runtime/smc.h>
 #include <s-visor/el3/titanium_private.h>
 
@@ -154,7 +154,12 @@ TITANIUM_ENTRY_END(vector_system_reset_entry)
 .globl	titanium_hyp_vector
 .globl	__svisor_early_stack
 
+/*
+ * x1 - vp_offset,
+ */
 LOCAL_TITANIUM_ENTRY(vector_primary_core_entry)
+	ldr x2 , =linux_vp_offset
+	str x1, [x2]
 	msr spsel, #1
 	ldr x0, =__svisor_early_stack
 	ldr x1, =0x1000

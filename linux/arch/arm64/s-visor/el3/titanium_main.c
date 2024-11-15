@@ -234,6 +234,13 @@ static uintptr_t __el3_text titanium_smc_handler(uint32_t smc_fid,
 
 		switch (smc_imm) {
 			case SMC_IMM_KVM_TO_TITANIUM_PRIMARY:
+				/*
+				* Pass vp_offset to x0.
+				* See n-visor.c:primary_switch_to_svisor()
+				*/
+				write_ctx_reg(get_gpregs_ctx(&titanium_ctx->cpu_ctx), CTX_GPREG_X1,
+							  read_ctx_reg(get_gpregs_ctx(handle), CTX_GPREG_X1));
+				break;
 			case SMC_IMM_KVM_TO_TITANIUM_SECONDARY:
 				break;
 			case SMC_IMM_KVM_TO_TITANIUM_TRAP:
