@@ -54,12 +54,20 @@
 #include <asm/kvm_coproc.h>
 #include <asm/sections.h>
 
+#ifdef CONFIG_S_VISOR
+#include <s-visor/lib/el3_runtime/smc.h>
+#include <s-visor/virt/kvm_host_common.h>
+#endif
+
 #ifdef REQUIRES_VIRT
 __asm__(".arch_extension	virt");
 #endif
 
+#ifndef CONFIG_S_VISOR
 #define TITANIUM_MAX_SUPPORTED_PHYSICAL_CORE_NUM 4
 #define TITANIUM_MAX_SIZE_PER_CORE (2048 + 64)
+#endif
+
 uint64_t shared_register_pages[TITANIUM_MAX_SUPPORTED_PHYSICAL_CORE_NUM * TITANIUM_MAX_SIZE_PER_CORE]; __attribute__((aligned(PAGE_SIZE)));
 
 inline void *get_titanium_shared_buf(void)
@@ -1786,13 +1794,14 @@ void kvm_arch_irq_bypass_start(struct irq_bypass_consumer *cons)
 }
 
 
-static inline void register_titanium_shared_memory(void) {
-    kvm_info("%s:%d sred_register_page sizeof(shared_register_pages) = %lx, addr is 0x%lx\n",
-                    __func__, __LINE__, sizeof(shared_register_pages), shared_register_pages);
-    asm volatile("mov x1, %0\n"::"r"(virt_to_phys(shared_register_pages)): "x1");
-    local_irq_disable();
-    // asm volatile("smc #0x10\n");
-    local_irq_enable();
+static inline void register_titanium_shared_memory(void)
+{
+#ifdef CONFIG_S_VISOR
+	kvm_info("%s:%d sred_register_page sizeof(shared_register_pages) = %lx, addr is 0x%lx\n",
+			 __func__, __LINE__, sizeof(shared_register_pages), (unsigned long)shared_register_pages);
+	nvisor_smc_1(SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_REGISTER,
+				 virt_to_phys(shared_register_pages));
+#endif
 }
 
 void flush_titanium_shadow_page_tables() {

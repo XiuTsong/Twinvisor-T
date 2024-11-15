@@ -84,9 +84,11 @@ LOCAL_TITANIUM_ENTRY(vector_kvm_trap_smc_entry)
 TITANIUM_ENTRY_END(vector_kvm_trap_smc_entry)
 
 LOCAL_TITANIUM_ENTRY(vector_kvm_shared_memory_register_entry)
-//    bl 	    	kvm_shared_memory_register
-//    smc	    	#0x10
-    b	.	/* SMC should not return */
+	ldr x0, =titanium_shared_pages_phys
+	str x1, [x0]
+	bl	kvm_shared_memory_register
+	__smc #SMC_IMM_TITANIUM_TO_KVM_SHARED_MEMORY
+	b	.	/* SMC should not return */
 TITANIUM_ENTRY_END(vector_kvm_shared_memory_register_entry)
 
 LOCAL_TITANIUM_ENTRY(vector_kvm_shared_memory_handle_entry)
