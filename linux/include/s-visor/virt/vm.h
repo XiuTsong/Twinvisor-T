@@ -7,6 +7,7 @@
 #define __S_VISOR_VM_H__
 
 #include <s-visor/virt/vcpu.h>
+#include <s-visor/mm/spt_info.h>
 
 #define MAX_VCPU_NUM 8
 
@@ -50,14 +51,14 @@ struct titanium_vm {
     unsigned int boot_core_id;
     bool is_booted;
 
-//    /* All vcpu->s1mmu share the same ttbr1 spt */
-//    struct spt ttbr1_spt;
-//
-//    /* spt information */
-//    struct spt_info spt_info;
-//
-//    /* per-core shared memory with guest */
-//    struct sec_shm *shms[PHYSICAL_CORE_NUM];
+   /* All vcpu->s1mmu share the same ttbr1 spt */
+   struct spt ttbr1_spt;
+
+   /* spt information */
+   struct spt_info spt_info;
+
+   /* per-core shared memory with guest */
+   struct sec_shm *shms[PHYSICAL_CORE_NUM];
 };
 
 

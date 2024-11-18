@@ -18,11 +18,20 @@ extern unsigned long __secure_data linux_vp_offset;
 
 #define VP_OFFSET ({ linux_vp_offset; })
 
-#define __pa2va(x) ((unsigned long)((x) + VP_OFFSET))
-#define __va2pa(x) ((unsigned long)((x) - VP_OFFSET))
+#define __pa2va(x) (((unsigned long)(x) + VP_OFFSET))
+#define __va2pa(x) (((unsigned long)(x) - VP_OFFSET))
 
 #define pa2va __pa2va
 #define va2pa __va2pa
+
+#define vfn2pfn(vfn)    (__va2pa((vfn) << PAGE_SHIFT) >> PAGE_SHIFT)
+#define pfn2vfn(pfn)    (__pa2va((pfn) << PAGE_SHIFT) >> PAGE_SHIFT)
+
+#define va2pfn(va)    (__va2pa(va) >> PAGE_SHIFT)
+#define pfn2va(pfn)    (__pa2va((pfn) << PAGE_SHIFT))
+
+#define _phys_to_virt(x) __pa2va(x)
+#define _virt_to_phys(x) __va2pa(x)
 
 void mm_primary_init(void);
 void mm_secondary_init(void);

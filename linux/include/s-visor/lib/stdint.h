@@ -12,6 +12,12 @@
 
 typedef long register_t;
 typedef unsigned long u_register_t;
+typedef unsigned long paddr_t;
+typedef unsigned long vaddr_t;
+
+#define _uint64_t unsigned long long
+#define _uint32_t unsigned int
+#define _bool _Bool
 
 #endif
 

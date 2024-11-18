@@ -1,10 +1,8 @@
 #ifndef __S_VISOR_LOCK_H__
 #define __S_VISOR_LOCK_H__
 
-#include <s-visor/s-visor.h>
-
 struct lock {
-	volatile uint64_t slock;
+	volatile unsigned long long slock;
 };
 
 int lock_init(struct lock *lock);

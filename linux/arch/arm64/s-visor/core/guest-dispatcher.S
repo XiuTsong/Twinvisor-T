@@ -43,6 +43,8 @@ LOCAL_TITANIUM_ENTRY(vector_kvm_shared_memory_register_entry)
 TITANIUM_ENTRY_END(vector_kvm_shared_memory_register_entry)
 
 LOCAL_TITANIUM_ENTRY(vector_kvm_shared_memory_handle_entry)
+	bl	kvm_shared_memory_handle
+	__smc #SMC_IMM_TITANIUM_TO_KVM_SHARED_MEMORY
     b	.	/* SMC should not return */
 TITANIUM_ENTRY_END(vector_kvm_shared_memory_handle_entry)
 

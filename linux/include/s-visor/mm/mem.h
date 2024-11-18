@@ -12,7 +12,6 @@ extern char __svisor_mem_base[];
 
 #define MEM_BASE ((unsigned long)__svisor_mem_base)
 
-
 #define MEM_BD_ALLOC_SIZE SZ_8M
 #define MEM_BD_ALLOC_BASE MEM_BASE
 #define MEM_BD_ALLOC_END (MEM_BD_ALLOC_BASE + MEM_BD_ALLOC_SIZE)

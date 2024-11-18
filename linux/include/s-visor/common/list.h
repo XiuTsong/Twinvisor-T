@@ -6,51 +6,30 @@
 #ifndef __SVISOR_LIST_H__
 #define __SVISOR_LIST_H__
 
-#include <linux/types.h>
+#include <s-visor/common/list_common.h>
+#include <s-visor/common/macro.h>
 
-static inline void list_init(struct list_head* head)
-{
-    head->next = head;
-    head->prev = head;
-}
+void list_init(struct list_head* head);
 
-static inline int list_empty(struct list_head* head)
-{
-    return (head->next == head);
-}
+int list_empty(struct list_head* head);
 
-static inline void list_remove(struct list_head *node)
-{
-    node->next->prev = node->prev;
-    node->prev->next = node->next;
-    node->next = NULL;
-    node->prev = NULL;
-}
+void list_remove(struct list_head *node);
 
-static inline void list_push(struct list_head* head, struct list_head *node)
-{
-    node->next = head->next;
-    node->prev = head;
-    node->next->prev = node;
-    node->prev->next = node;
-}
+void list_push(struct list_head* head, struct list_head *node);
 
-static inline void list_append(struct list_head* head, struct list_head *node)
-{
-    struct list_head *tail = head->prev;
-    list_push(tail, node);
-}
+void list_append(struct list_head* head, struct list_head *node);
 
-static inline struct list_head *list_pop(struct list_head* head)
-{
-    struct list_head *node = NULL;
+struct list_head *list_pop(struct list_head* head);
 
-    if(head->next == head){
-        return NULL;
-    }
-    node = head->next;
-    list_remove(node);
-    return node;
-}
+#define for_each_in_list(elem, type, field, head) \
+	for (elem = _container_of((head)->next, type, field); \
+	     &((elem)->field) != (head); \
+	     elem = _container_of(((elem)->field).next, type, field))
+
+#define for_each_in_list_safe(elem, n, type, field, head) \
+	for (elem = _container_of((head)->next, type, field), \
+		n = _container_of(((elem)->field).next, type, field); \
+	     &((elem)->field) != (head); \
+	     elem = n, n = _container_of(((elem)->field).next, type, field))
 
 #endif

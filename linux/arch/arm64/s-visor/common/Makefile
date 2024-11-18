@@ -9,3 +9,4 @@ asflags-y := -fno-stack-protector
 
 obj-y += aarch64/misc.o
 obj-y += aarch64/ticket-lock.o
+obj-y += aarch64/list.o
