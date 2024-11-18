@@ -561,10 +561,9 @@ BEGIN_FUNC(el3_exit)
 	 * Note: We already restore elr_el2 and spsr_el2 in tianium_smc_handler
 	 * ----------------------------------------------------------
 	 */
-	// ldr	x18, [sp, #CTX_EL3STATE_OFFSET + CTX_SCR_EL3]
-	// ldp	x16, x17, [sp, #CTX_EL3STATE_OFFSET + CTX_SPSR_EL3]
-	// msr	spsr_el2, x16
-	// msr	elr_el2, x17
+	ldp	x16, x17, [sp, #CTX_EL3STATE_OFFSET + CTX_SPSR_EL3]
+	msr	spsr_el2, x16
+	msr	elr_el2, x17
 
 	restore_ptw_el1_sys_regs
 

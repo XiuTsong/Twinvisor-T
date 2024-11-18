@@ -20,6 +20,9 @@ void cm_el1_sysregs_context_restore(uint32_t security_state);
 void cm_el2_sysregs_context_save(uint32_t security_state, uint32_t is_host_only);
 void cm_el2_sysregs_context_restore(uint32_t security_state, uint32_t is_host_only);
 
+void cm_el2_eret_state_save(uint32_t security_state);
+void cm_el2_eret_state_restore(uint32_t security_state);
+
 void cm_set_elr_el3(uint32_t security_state, uintptr_t entrypoint);
 uint64_t cm_get_elr_el3(uint32_t security_state);
 uint64_t cm_get_vbar_el2(uint32_t security_state);

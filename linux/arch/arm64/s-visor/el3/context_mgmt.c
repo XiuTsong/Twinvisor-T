@@ -120,6 +120,39 @@ __el3_text void cm_el2_sysregs_context_restore(uint32_t security_state, uint32_t
 	return;
 }
 
+__el3_text void cm_el2_eret_state_save(uint32_t security_state)
+{
+	cpu_context_t *ctx;
+	unsigned long elr_el2, spsr_el2;
+
+	ctx = cm_get_context(security_state);
+	assert(ctx != NULL);
+
+	elr_el2 = read_sysreg(elr_el2);
+	spsr_el2 = read_sysreg(spsr_el2);
+	write_ctx_reg(get_el2_sysregs_ctx(ctx), CTX_ELR_EL2, elr_el2);
+	write_ctx_reg(get_el2_sysregs_ctx(ctx), CTX_SPSR_EL2, spsr_el2);
+
+	return;
+}
+
+__el3_text void cm_el2_eret_state_restore(uint32_t security_state)
+{
+	cpu_context_t *ctx;
+	unsigned long elr_el2, spsr_el2;
+
+	ctx = cm_get_context(security_state);
+	assert(ctx != NULL);
+
+	elr_el2 = read_ctx_reg(get_el2_sysregs_ctx(ctx), CTX_ELR_EL2);
+	spsr_el2 = read_ctx_reg(get_el2_sysregs_ctx(ctx), CTX_SPSR_EL2);
+
+	write_sysreg(elr_el2, elr_el2);
+	write_sysreg(spsr_el2, spsr_el2);
+
+	return;
+}
+
 /*******************************************************************************
  * This function populates ELR_EL3 member of 'cpu_context' pertaining to the
  * given security state with the given entrypoint
@@ -128,14 +161,14 @@ __el3_text void cm_el2_sysregs_context_restore(uint32_t security_state, uint32_t
 __el3_text void cm_set_elr_el3(uint32_t security_state, uintptr_t entrypoint)
 {
 	cpu_context_t *ctx;
-	el2_sysregs_t *state;
+	el3_state_t *state;
 
 	ctx = cm_get_context(security_state);
 	assert(ctx != NULL);
 
 	/* Populate EL3 state so that ERET jumps to the correct entry */
-    state = get_el2_sysregs_ctx(ctx);
-	write_ctx_reg(state, CTX_ELR_EL2, entrypoint);
+	state = get_el3state_ctx(ctx);
+	write_ctx_reg(state, CTX_ELR_EL3, entrypoint);
 }
 
 /*******************************************************************************
@@ -146,15 +179,15 @@ __el3_text void cm_set_elr_spsr_el3(uint32_t security_state,
 			uintptr_t entrypoint, uint32_t spsr)
 {
 	cpu_context_t *ctx;
-	el2_sysregs_t *state;
+	el3_state_t *state;
 
 	ctx = cm_get_context(security_state);
 	assert(ctx != NULL);
 
 	/* Populate EL3 state so that ERET jumps to the correct entry */
-	state = get_el2_sysregs_ctx(ctx);
-	write_ctx_reg(state, CTX_ELR_EL2, entrypoint);
-	write_ctx_reg(state, CTX_SPSR_EL2, spsr);
+	state = get_el3state_ctx(ctx);
+	write_ctx_reg(state, CTX_ELR_EL3, entrypoint);
+	write_ctx_reg(state, CTX_SPSR_EL3, spsr);
 }
 
 /*******************************************************************************
