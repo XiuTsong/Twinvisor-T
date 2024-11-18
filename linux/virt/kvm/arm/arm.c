@@ -193,19 +193,18 @@ void trap_titanium_enter_guest(struct kvm_vcpu *vcpu)
 
 inline void boot_titanium_secure_vm(u32 sec_vm_id)
 {
-    /* Initialize *smc_req* in *kvm*. */
-    uint64_t qemu_s1ptp;
-    kvm_smc_req_t *smc_req;
-    asm volatile("mrs %0, ttbr0_el2\n\t" : "=r"(qemu_s1ptp));
-    smc_req = get_smc_req_region(smp_processor_id());
-    smc_req->sec_vm_id = sec_vm_id;
-    smc_req->req_type = REQ_KVM_TO_TITANIUM_BOOT;
-    smc_req->boot.qemu_s1ptp = qemu_s1ptp;
-    pr_err("%s:%d Sending KVM_SMC_BOOT ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
-    local_irq_disable();
-    // asm volatile("smc 0x18\n\t");
-    local_irq_enable();
-    pr_err("%s:%d Return from KVM_SMC_BOOT\n", __func__, smp_processor_id());
+	/* Initialize *smc_req* in *kvm*. */
+	uint64_t qemu_s1ptp;
+	kvm_smc_req_t *smc_req = NULL;
+
+	asm volatile("mrs %0, ttbr0_el2\n\t" : "=r"(qemu_s1ptp));
+	smc_req = get_smc_req_region(smp_processor_id());
+	smc_req->sec_vm_id = sec_vm_id;
+	smc_req->req_type = REQ_KVM_TO_TITANIUM_BOOT;
+	smc_req->boot.qemu_s1ptp = qemu_s1ptp;
+	pr_err("%s:%d Sending KVM_SMC_BOOT ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
+	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_HANDLE);
+	pr_err("%s:%d Return from KVM_SMC_BOOT\n", __func__, smp_processor_id());
 }
 /**
  * kvm_arch_init_vm - initializes a VM data structure
@@ -272,15 +271,14 @@ vm_fault_t kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
 
 inline static void destroy_titanium_secure_vm(u32 sec_vm_id)
 {
-    kvm_smc_req_t *smc_req;
-    smc_req = get_smc_req_region(smp_processor_id());
-    smc_req->sec_vm_id = sec_vm_id;
-    smc_req->req_type = REQ_KVM_TO_TITANIUM_SHUTDOWN;
-    pr_err("%s:%d Sending KVM_SMC_SHUTDOWN ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
-    local_irq_disable();
-    // asm volatile("smc 0x18\n\t");
-    local_irq_enable();
-    pr_err("%s:%d Return from KVM_SMC_SHUTDOWN\n", __func__, smp_processor_id());
+	kvm_smc_req_t *smc_req = NULL;
+
+	smc_req = get_smc_req_region(smp_processor_id());
+	smc_req->sec_vm_id = sec_vm_id;
+	smc_req->req_type = REQ_KVM_TO_TITANIUM_SHUTDOWN;
+	pr_err("%s:%d Sending KVM_SMC_SHUTDOWN ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
+	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_HANDLE);
+	pr_err("%s:%d Return from KVM_SMC_SHUTDOWN\n", __func__, smp_processor_id());
 }
 
 /**
