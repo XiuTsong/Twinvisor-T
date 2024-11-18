@@ -7,7 +7,6 @@
 #include <s-visor/mm/mem.h>
 #include <s-visor/mm/page_allocator.h>
 
-/* TODO: mem_base */
 #define PG_SZ       0x1000UL
 #define MAX_PAGE        (MEM_PAGE_ALLOC_SIZE / PG_SZ)
 
@@ -26,12 +25,12 @@ __secure_text void secure_page_alloc_init(void)
 
 __secure_text static inline void* get_page_addr(int i)
 {
-    return (void *)(MEM_BASE + i * PG_SZ);
+    return (void *)(MEM_PAGE_ALLOC_BASE + i * PG_SZ);
 }
 
 __secure_text static inline int get_page_index(void *ptr)
 {
-    return ((uint64_t)ptr - MEM_BASE) / PG_SZ;
+    return ((uint64_t)ptr - MEM_PAGE_ALLOC_BASE) / PG_SZ;
 }
 
 __secure_text void *secure_page_alloc(void)
