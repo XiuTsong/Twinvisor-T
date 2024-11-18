@@ -10,4 +10,5 @@ asflags-y := -fno-stack-protector
 obj-y += tlsf.o \
 	 	 page_allocator.o \
 		 buddy_allocator.o \
-		 mm.o
+		 mm.o \
+		 spt_info.o
