@@ -2,6 +2,7 @@
  * Created on 2024/11/05
  */
 
+#include <s-visor/s-visor.h>
 #include <s-visor/common/lock.h>
 #include <s-visor/mm/mem.h>
 #include <s-visor/mm/page_allocator.h>

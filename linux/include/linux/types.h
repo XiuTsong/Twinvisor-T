@@ -183,9 +183,7 @@ typedef struct {
 } atomic64_t;
 #endif
 
-struct list_head {
-	struct list_head *next, *prev;
-};
+#include <s-visor/common/list_common.h>
 
 struct hlist_head {
 	struct hlist_node *first;
