@@ -18,7 +18,7 @@ void __before_nvisor_smc(struct smc_local_context *ctx)
 {
 	ctx->vbar_el2 = read_sysreg(vbar_el2);
 	ctx->sp_el3 = (unsigned long)cm_get_next_context(NON_SECURE);
-	cm_el2_sysregs_context_save(NON_SECURE, true);
+	cm_el2_eret_state_save(NON_SECURE);
 	local_irq_save(ctx->flags);
 	write_sysreg((unsigned long)runtime_exceptions, vbar_el2);
 }
@@ -26,5 +26,6 @@ void __before_nvisor_smc(struct smc_local_context *ctx)
 void __after_nvisor_smc(struct smc_local_context *ctx)
 {
 	write_sysreg(ctx->vbar_el2, vbar_el2);
+	cm_el2_eret_state_restore(NON_SECURE);
 	local_irq_restore(ctx->flags);
 }
