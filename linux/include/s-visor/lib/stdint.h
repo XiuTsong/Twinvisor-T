@@ -17,6 +17,7 @@ typedef unsigned long vaddr_t;
 
 #define _uint64_t unsigned long long
 #define _uint32_t unsigned int
+#define _bool _Bool
 
 #endif
 

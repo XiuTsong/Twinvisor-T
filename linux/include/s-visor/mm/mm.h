@@ -24,6 +24,9 @@ extern unsigned long __secure_data linux_vp_offset;
 #define pa2va __pa2va
 #define va2pa __va2pa
 
+#define phys_to_virt(x) __pa2va(x)
+#define virt_to_phys(x) __va2pa(x)
+
 void mm_primary_init(void);
 void mm_secondary_init(void);
 
