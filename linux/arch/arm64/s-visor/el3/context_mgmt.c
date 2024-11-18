@@ -128,14 +128,14 @@ __el3_text void cm_el2_sysregs_context_restore(uint32_t security_state, uint32_t
 __el3_text void cm_set_elr_el3(uint32_t security_state, uintptr_t entrypoint)
 {
 	cpu_context_t *ctx;
-	el2_sysregs_t *state;
+	el3_state_t *state;
 
 	ctx = cm_get_context(security_state);
 	assert(ctx != NULL);
 
 	/* Populate EL3 state so that ERET jumps to the correct entry */
-    state = get_el2_sysregs_ctx(ctx);
-	write_ctx_reg(state, CTX_ELR_EL2, entrypoint);
+	state = get_el3state_ctx(ctx);
+	write_ctx_reg(state, CTX_ELR_EL3, entrypoint);
 }
 
 /*******************************************************************************
@@ -146,15 +146,15 @@ __el3_text void cm_set_elr_spsr_el3(uint32_t security_state,
 			uintptr_t entrypoint, uint32_t spsr)
 {
 	cpu_context_t *ctx;
-	el2_sysregs_t *state;
+	el3_state_t *state;
 
 	ctx = cm_get_context(security_state);
 	assert(ctx != NULL);
 
 	/* Populate EL3 state so that ERET jumps to the correct entry */
-	state = get_el2_sysregs_ctx(ctx);
-	write_ctx_reg(state, CTX_ELR_EL2, entrypoint);
-	write_ctx_reg(state, CTX_SPSR_EL2, spsr);
+	state = get_el3state_ctx(ctx);
+	write_ctx_reg(state, CTX_ELR_EL3, entrypoint);
+	write_ctx_reg(state, CTX_SPSR_EL3, spsr);
 }
 
 /*******************************************************************************

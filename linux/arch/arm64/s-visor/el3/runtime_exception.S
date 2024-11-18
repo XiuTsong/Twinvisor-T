@@ -254,7 +254,7 @@ smc_handler64:
 	mrs	x16, spsr_el2
 	mrs	x17, elr_el2
 	stp	x16, x17, [x6, #CTX_EL3STATE_OFFSET + CTX_SPSR_EL3]
-	str	x18, [x6, #CTX_EL3STATE_OFFSET + CTX_SCR_EL3]
+	// str	x18, [x6, #CTX_EL3STATE_OFFSET + CTX_SCR_EL3]
 
 	/* Copy SCR_EL3.NS bit to the flag to indicate caller's security
 	 * Note:
