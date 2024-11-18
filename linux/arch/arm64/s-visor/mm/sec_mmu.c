@@ -6,11 +6,17 @@
 #include <linux/errno.h>
 #include <asm/sysreg.h>
 
+#include <s-visor/s-visor.h>
 #include <s-visor/mm/sec_mmu.h>
 #include <s-visor/mm/stage2_mmu.h>
+#include <s-visor/mm/stage1_mmu.h>
 #include <s-visor/mm/mm.h>
 #include <s-visor/mm/page_allocator.h>
 #include <s-visor/mm/buddy_allocator.h>
+
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
 
 /*
  * This file is used for handle spt.
@@ -43,7 +49,7 @@ static unsigned long ipa2hva(unsigned long vttbr_value, unsigned long ipa)
 	}
 
 	/* In el1-visor, hpa == hva */
-	hva = phys_to_virt(hpa);
+	hva = pa2va(hpa);
 
 	return hva;
 }
@@ -105,7 +111,7 @@ static int set_spt_l3_entry(struct s1mmu *s1mmu, const s1_pte_t *orig_entry,
 	if (hpn == ipn) {
 		/* if hpn == ipn, it means that there is no ipn->hpn mapping
 		 * in vttbr. We should set the valid bit to 0 to ensure that
-		 * accessing to this address will lead to page faut,
+		 * accessing to this address will lead to page fault,
 		 * thus we can simulate the stage-2 page fault and switch to
 		 * nvisor. We also set ignored bit to recognize this
 		 */
@@ -128,7 +134,7 @@ static inline void copy_and_set_pte(s1_pte_t **shadow_entry,
 {
 	(*shadow_entry)->pte = orig_entry->pte;
 	(*shadow_entry)->table.next_table_addr =
-		((uint64_t)shadow_next_ptp) >> PAGE_SHIFT;
+		(va2pa(shadow_next_ptp)) >> PAGE_SHIFT;
 }
 
 __secure_text
@@ -151,7 +157,7 @@ static int split_need_realloc(s1_pte_t *l2_entry, const s1_pte_t *orig_l2_entry)
 	if (IS_PTE_INVALID(l2_entry->pte) || !IS_PTE_TABLE(l2_entry->pte)) {
 		return 1;
 	}
-	l3_page = (s1_ptp_t *)(l2_entry->table.next_table_addr << PAGE_SHIFT);
+	l3_page = (s1_ptp_t *)pfn2va(l2_entry->table.next_table_addr);
 	if (!l3_page) {
 		printf("shadow split l2_block next_addr is 0\n");
 		return 1;
@@ -168,7 +174,7 @@ static int do_l2_block_split(struct s1mmu *s1mmu, s1_pte_t *l2_entry,
 							 const s1_pte_t *orig_l2_entry)
 {
 	s1_ptp_t *l3_page = NULL;
-	s1_pte_t *l3_entry;
+	s1_pte_t *l3_entry = NULL;
 	unsigned long l2_pfn;
 	unsigned long ipn;
 	int index, ret;
@@ -189,8 +195,7 @@ static int do_l2_block_split(struct s1mmu *s1mmu, s1_pte_t *l2_entry,
 			return ret;
 		}
 	} else {
-		l3_page = (s1_ptp_t *)(l2_entry->table.next_table_addr
-				       << PAGE_SHIFT);
+		l3_page = (s1_ptp_t *)pfn2va(l2_entry->table.next_table_addr);
 	}
 	if (!l3_page) {
 		printf("%s bd_alloc failed\n", __func__);
@@ -201,7 +206,7 @@ static int do_l2_block_split(struct s1mmu *s1mmu, s1_pte_t *l2_entry,
 	l2_entry->pte = 0;
 	l2_entry->table.is_valid = 1;
 	l2_entry->table.is_table = 1;
-	l2_entry->table.next_table_addr = (unsigned long)l3_page >> PAGE_SHIFT;
+	l2_entry->table.next_table_addr = va2pfn(l3_page);
 	l2_pfn = orig_l2_entry->l2_block.pfn << PAGE_ORDER;
 	for (index = 0; index < PTE_NUM; ++index) {
 		l3_entry = &(l3_page->ent[index]);
@@ -221,9 +226,8 @@ __secure_text
 static int sync_spt_pte(struct s1mmu *s1mmu, const s1_pte_t *orig_entry,
 						s1_pte_t *shadow_entry, int level)
 {
-	void *shadow_next_ptp;
-	s1_ptp_t *next_original_pgtbl_ipa;
-	s1_ptp_t *next_shadow_pgtbl;
+	void *shadow_next_ptp = NULL;
+	s1_ptp_t *next_orig_pgtbl_ipa = NULL;
 	int ret = 0;
 
 	if (IS_PTE_INVALID(orig_entry->pte)) {
@@ -253,12 +257,11 @@ static int sync_spt_pte(struct s1mmu *s1mmu, const s1_pte_t *orig_entry,
 	memset(shadow_next_ptp, 0, PAGE_SIZE);
 	copy_and_set_pte(&shadow_entry, orig_entry, shadow_next_ptp);
 
-	next_shadow_pgtbl = (s1_ptp_t *)(shadow_next_ptp);
-	next_original_pgtbl_ipa =
+	next_orig_pgtbl_ipa =
 		(s1_ptp_t *)(orig_entry->table.next_table_addr << PAGE_SHIFT);
 
 	/* Need to walk next page recursively */
-	ret = sync_spt_page(s1mmu, next_original_pgtbl_ipa, next_shadow_pgtbl,
+	ret = sync_spt_page(s1mmu, next_orig_pgtbl_ipa, shadow_next_ptp,
 			    level + 1);
 	if (ret < 0) {
 		printf("sync next page wrong\n");
@@ -346,8 +349,8 @@ int map_shm_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp)
 	}
 	for (core_id = 0U; core_id < PHYSICAL_CORE_NUM; ++core_id) {
 		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(GUEST_SHM_ADDR(core_id)),
-					   PFN((unsigned long)shms[core_id]),
-					   NULL);
+								   va2pfn((unsigned long)shms[core_id]),
+								   NULL);
 		if (ret != 0) {
 			printf("map shared mem in spt failed at core: %u\n",
 			       core_id);
@@ -365,16 +368,15 @@ static int map_gate_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp,
 	int ret = 0;
 
 	if (type == TYPE_TTBR0) {
-		/* FIXME: Do not use identity mapping */
-		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN((uint64_t)enter_guest),
-					   PFN((uint64_t)enter_guest), NULL);
+		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(va2pa(enter_guest)),
+								   va2pfn(enter_guest), NULL);
 		if (ret != 0) {
 			goto out_map_gate;
 		}
 		ret = s1mmu_map_vfn_to_pfn(s1ptp,
-					   VFN((uint64_t)titanium_hyp_vector),
-					   PFN((uint64_t)titanium_hyp_vector),
-					   NULL);
+								   VFN(va2pa(titanium_hyp_vector)),
+								   va2pfn(titanium_hyp_vector),
+								   NULL);
 		if (ret != 0) {
 			goto out_map_gate;
 		}
@@ -538,7 +540,7 @@ static int free_spt_pte(s1_pte_t *entry, int level, struct ttbr_info *ttbr_info)
 		entry->pte = 0;
 		return 0;
 	}
-	next_ptp = (void *)(entry->table.next_table_addr << PAGE_SHIFT);
+	next_ptp = (void *)pfn2va(entry->table.next_table_addr);
 	if (next_ptp == NULL) {
 		entry->pte = 0;
 		return 0;
@@ -776,11 +778,8 @@ static s1_pte_t *get_shadow_entry(struct ptp_info *ptp_info,
 
 	offset = fault_ipa - ptp_info->orig_ptp;
 	shadow_pgtbl_ipa = ptp_info->shadow_ptp + offset;
-	/*
-     * Here shadow_pgtbl_ipa == shadow_pgtbl_ipa.
-     * See sync_pte() map_in_svm_s2ptp
-     */
-	shadow_pgtbl_hva = shadow_pgtbl_ipa;
+	shadow_pgtbl_hva = pa2va(shadow_pgtbl_ipa);
+
 	return (s1_pte_t *)shadow_pgtbl_hva;
 }
 
@@ -923,14 +922,14 @@ int destroy_spt(struct s1mmu *s1mmu, unsigned long ttbr, enum ttbr_type type)
 __secure_text
 s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, unsigned long vfn)
 {
-	s1_pte_t l3_entry = { .pte = 0 };
-	s1_ptp_t *l0_table = s1ptp;
+	s1_ptp_t *l0_table = NULL, *l1_table = NULL, *l2_table = NULL, *l3_table = NULL;
+	s1_pte_t l0_entry, l1_entry, l2_entry, l3_entry = { .pte = 0 };
+	uint32_t l0_shift, l1_shift, l2_shift, l3_shift;
+	uint32_t l0_index, l1_index, l2_index, l3_index;
 
-	s1_ptp_t *l1_table = NULL;
-	s1_pte_t l0_entry;
-	uint32_t l0_shift = (3 - 0) * PAGE_ORDER;
-	uint32_t l0_index = (vfn >> l0_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l0_table = s1ptp;
+	l0_shift = (3 - 0) * PAGE_ORDER;
+	l0_index = (vfn >> l0_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l0_table)
 		return l3_entry;
 	l0_entry = l0_table->ent[l0_index];
@@ -940,13 +939,10 @@ s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, unsigned long vfn)
 		/* Huge page should be disabled */
 		return l3_entry;
 	}
-	l1_table = (s1_ptp_t *)(l0_entry.table.next_table_addr << PAGE_SHIFT);
 
-	s1_ptp_t *l2_table = NULL;
-	s1_pte_t l1_entry;
-	uint32_t l1_shift = (3 - 1) * PAGE_ORDER;
-	uint32_t l1_index = (vfn >> l1_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l1_table = (s1_ptp_t *)pfn2va(l0_entry.table.next_table_addr);
+	l1_shift = (3 - 1) * PAGE_ORDER;
+	l1_index = (vfn >> l1_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l1_table)
 		return l3_entry;
 	l1_entry = l1_table->ent[l1_index];
@@ -956,13 +952,10 @@ s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, unsigned long vfn)
 		/* Huge page should be disabled */
 		return l3_entry;
 	}
-	l2_table = (s1_ptp_t *)(l1_entry.table.next_table_addr << PAGE_SHIFT);
 
-	s1_ptp_t *l3_table = NULL;
-	s1_pte_t l2_entry;
-	uint32_t l2_shift = (3 - 2) * PAGE_ORDER;
-	uint32_t l2_index = (vfn >> l2_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l2_table = (s1_ptp_t *)pfn2va(l1_entry.table.next_table_addr);
+	l2_shift = (3 - 2) * PAGE_ORDER;
+	l2_index = (vfn >> l2_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l2_table)
 		return l3_entry;
 	l2_entry = l2_table->ent[l2_index];
@@ -971,18 +964,14 @@ s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, unsigned long vfn)
 	} else if (!IS_PTE_TABLE(l2_entry.pte)) {
 		return l2_entry;
 	}
-	l3_table = (s1_ptp_t *)(l2_entry.table.next_table_addr << PAGE_SHIFT);
 
-	uint32_t l3_shift = (3 - 3) * PAGE_ORDER;
-	uint32_t l3_index = (vfn >> l3_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l3_table = (s1_ptp_t *)pfn2va(l2_entry.table.next_table_addr);
+	l3_shift = (3 - 3) * PAGE_ORDER;
+	l3_index = (vfn >> l3_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l3_table)
 		return l3_entry;
 	l3_entry = l3_table->ent[l3_index];
-	// printf("l0_entry: 0x%llx\n", l0_entry.pte);
-	// printf("l1_entry: 0x%llx\n", l1_entry.pte);
-	// printf("l2_entry: 0x%llx\n", l2_entry.pte);
-	// printf("l3_entry: 0x%llx\n", l3_entry.pte);
+
 	return l3_entry;
 }
 
@@ -990,18 +979,21 @@ __secure_text
 static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 				s1_pte_t *ptep)
 {
-	s1_ptp_t *l0_table = s1ptp;
-	s1_ptp_t *l1_table = NULL;
-	s1_pte_t l0_entry;
-	uint32_t l0_shift = (3 - 0) * PAGE_ORDER;
-	uint32_t l0_index = (vfn >> l0_shift) & ((1UL << PAGE_ORDER) - 1);
+	s1_ptp_t *l0_table = NULL, *l1_table = NULL, *l2_table = NULL, *l3_table = NULL;
+	s1_pte_t l0_entry, l1_entry, l2_entry, l3_entry;
+	uint32_t l0_shift, l1_shift, l2_shift, l3_shift;
+	uint32_t l0_index, l1_index, l2_index, l3_index;
+	s1_ptp_t *next_ptp = NULL;
 
+	l0_table = s1ptp;
+	l0_shift = (3 - 0) * PAGE_ORDER;
+	l0_index = (vfn >> l0_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l0_table) {
 		return -EINVAL;
 	}
 	l0_entry = l0_table->ent[l0_index];
 	if (IS_PTE_INVALID(l0_entry.pte)) {
-		s1_ptp_t *next_ptp = (s1_ptp_t *)secure_page_alloc();
+		next_ptp = (s1_ptp_t *)secure_page_alloc();
 		if (!next_ptp) {
 			return -ENOMEM;
 		}
@@ -1010,26 +1002,21 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 		l0_entry.table.is_valid = 1;
 		l0_entry.table.is_table = 1;
 		l0_entry.table.NS = 0;
-		/* Should use virt_to_phys if MMU is enabled */
-		l0_entry.table.next_table_addr =
-			((uint64_t)next_ptp) >> PAGE_SHIFT;
+		l0_entry.table.next_table_addr = va2pfn(next_ptp);
 		l0_table->ent[l0_index] = l0_entry;
 	} else if (!IS_PTE_TABLE(l0_entry.pte)) {
 		/* Huge page should be disabled */
 		return -EINVAL;
 	}
-	l1_table = (s1_ptp_t *)(l0_entry.table.next_table_addr << PAGE_SHIFT);
 
-	s1_ptp_t *l2_table = NULL;
-	s1_pte_t l1_entry;
-	uint32_t l1_shift = (3 - 1) * PAGE_ORDER;
-	uint32_t l1_index = (vfn >> l1_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l1_table = next_ptp;
+	l1_shift = (3 - 1) * PAGE_ORDER;
+	l1_index = (vfn >> l1_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l1_table)
 		return -EINVAL;
 	l1_entry = l1_table->ent[l1_index];
 	if (IS_PTE_INVALID(l1_entry.pte)) {
-		s1_ptp_t *next_ptp = (s1_ptp_t *)secure_page_alloc();
+		next_ptp = (s1_ptp_t *)secure_page_alloc();
 		if (!next_ptp) {
 			return -ENOMEM;
 		}
@@ -1039,25 +1026,21 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 		l1_entry.table.is_table = 1;
 		l1_entry.table.NS = 0;
 		/* Should use virt_to_phys if MMU is enabled */
-		l1_entry.table.next_table_addr =
-			((uint64_t)next_ptp) >> PAGE_SHIFT;
+		l1_entry.table.next_table_addr = va2pfn(next_ptp);
 		l1_table->ent[l1_index] = l1_entry;
 	} else if (!IS_PTE_TABLE(l1_entry.pte)) {
 		/* Huge page should be disabled */
 		return -EINVAL;
 	}
-	l2_table = (s1_ptp_t *)(l1_entry.table.next_table_addr << PAGE_SHIFT);
 
-	s1_ptp_t *l3_table = NULL;
-	s1_pte_t l2_entry;
-	uint32_t l2_shift = (3 - 2) * PAGE_ORDER;
-	uint32_t l2_index = (vfn >> l2_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l2_table = next_ptp;
+	l2_shift = (3 - 2) * PAGE_ORDER;
+	l2_index = (vfn >> l2_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l2_table)
 		return -EINVAL;
 	l2_entry = l2_table->ent[l2_index];
 	if (IS_PTE_INVALID(l2_entry.pte)) {
-		s1_ptp_t *next_ptp = (s1_ptp_t *)secure_page_alloc();
+		next_ptp = (s1_ptp_t *)secure_page_alloc();
 		if (!next_ptp) {
 			return -ENOMEM;
 		}
@@ -1067,19 +1050,16 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 		l2_entry.table.is_table = 1;
 		l2_entry.table.NS = 0;
 		/* FIXME: Should use virt_to_phys if MMU is enabled */
-		l2_entry.table.next_table_addr =
-			((uint64_t)next_ptp) >> PAGE_SHIFT;
+		l2_entry.table.next_table_addr = va2pfn(next_ptp);
 		l2_table->ent[l2_index] = l2_entry;
 	} else if (!IS_PTE_TABLE(l2_entry.pte)) {
 		/* Huge page should be disabled */
 		return -EINVAL;
 	}
-	l3_table = (s1_ptp_t *)(l2_entry.table.next_table_addr << PAGE_SHIFT);
 
-	s1_pte_t l3_entry;
-	uint32_t l3_shift = (3 - 3) * PAGE_ORDER;
-	uint32_t l3_index = (vfn >> l3_shift) & ((1UL << PAGE_ORDER) - 1);
-
+	l3_table = next_ptp;
+	l3_shift = (3 - 3) * PAGE_ORDER;
+	l3_index = (vfn >> l3_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l3_table)
 		return -EINVAL;
 	l3_entry = l3_table->ent[l3_index];
@@ -1097,7 +1077,6 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 		l3_entry.l3_page.SH = 0x3;
 		l3_entry.l3_page.AF = 1;
 		l3_entry.l3_page.nG = 0;
-
 		l3_entry.l3_page.pfn = pfn;
 	}
 
@@ -1105,11 +1084,6 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 		*ptep = l3_entry;
 	l3_table->ent[l3_index] = l3_entry;
 
-	// printf("map vfn: %lx to pfn: %lx\n", vfn, pfn);
-	// printf("--> l0_entry: 0x%llx\n", l0_entry.pte);
-	// printf("--> l1_entry: 0x%llx\n", l1_entry.pte);
-	// printf("--> l2_entry: 0x%llx\n", l2_entry.pte);
-	// printf("--> l3_entry: 0x%llx\n", l3_entry.pte);
 	return 0;
 }
 

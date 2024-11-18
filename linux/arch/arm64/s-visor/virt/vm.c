@@ -18,6 +18,10 @@
 #include <s-visor/virt/kvm_host_common.h>
 #include <s-visor/virt/kvm_relay.h>
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 struct titanium_state __secure_data global_titanium_states[SVISOR_PHYSICAL_CORE_NUM];
 uint64_t * __secure_data titanium_shared_pages = NULL;
 uint64_t __secure_data titanium_shared_pages_phys;

@@ -3,10 +3,10 @@
  * @Date: 2024-11-18 15:55:47
  */
 
-#include "linux/types.h"
 #include <asm/page-def.h>
 
 #include <s-visor/mm/stage2_mmu.h>
+#include <s-visor/mm/mm.h>
 
 /*
  * Translate a stage-2 page table from IPN to HPN
@@ -29,22 +29,22 @@ pte_t translate_stage2_pt(ptp_t *s2ptp, paddr_t ipn) {
 			(l1_entry.pte & PTE_DESCRIPTOR_MASK) != PTE_DESCRIPTOR_TABLE) {
 		return ret;
 	}
-	l2_table = (ptp_t *)(l1_entry.table.next_table_addr << PAGE_SHIFT);
 
+	l2_table = (ptp_t *)pfn2va(l1_entry.table.next_table_addr);
 	l2_shift = (3 - 2) * PAGE_ORDER;
 	l2_index = (ipn >> l2_shift) & ((1UL << PAGE_ORDER) - 1);
-
 	if (!l2_table) return ret;
 	l2_entry = l2_table->ent[l2_index];
 	if ((l2_entry.pte & ARM64_MMU_PTE_INVALID_MASK) == 0 ||
 			(l2_entry.pte & PTE_DESCRIPTOR_MASK) != PTE_DESCRIPTOR_TABLE) {
 		return ret;
 	}
-	l3_table = (ptp_t *)(l2_entry.table.next_table_addr << PAGE_SHIFT);
 
+	l3_table = (ptp_t *)pfn2va(l2_entry.table.next_table_addr);
 	l3_shift = (3 - 3) * PAGE_ORDER;
 	l3_index = (ipn >> l3_shift) & ((1UL << PAGE_ORDER) - 1);
 
 	if (!l3_table) return ret;
+
 	return l3_table->ent[l3_index];
 }
