@@ -258,7 +258,7 @@ static int sync_spt_pte(struct s1mmu *s1mmu, const s1_pte_t *orig_entry,
 	copy_and_set_pte(&shadow_entry, orig_entry, shadow_next_ptp);
 
 	next_orig_pgtbl_ipa =
-		(s1_ptp_t *)(orig_entry->table.next_table_addr << PAGE_SHIFT);
+		(s1_ptp_t *)((unsigned long)(orig_entry->table.next_table_addr) << PAGE_SHIFT);
 
 	/* Need to walk next page recursively */
 	ret = sync_spt_page(s1mmu, next_orig_pgtbl_ipa, shadow_next_ptp,
