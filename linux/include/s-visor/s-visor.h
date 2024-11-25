@@ -5,15 +5,13 @@
 #ifndef __S_VISOR_H__
 #define __S_VISOR_H__
 
-#include <linux/printk.h>
 #include <linux/string.h>
 
 #include <s-visor/common_defs.h>
+#include <s-visor/lib/stdio.h>
 
 #define __secure_text	__section(.svisor.text)
 #define __secure_data	__section(.svisor.data)
-
-#define printf(fmt, ...)
 
 #define SVISOR_DEBUG
 

@@ -7,14 +7,15 @@
 #include <s-visor/mm/mm.h>
 #include <s-visor/sched/sched.h>
 #include <s-visor/virt/vm.h>
+#include <s-visor/drivers/console.h>
 
 #define VAL_EXTRACT_BITS(data, start, end) \
 	((data >> start) & ((1ul << (end-start+1))-1))
 
 int __secure_text init_primary_core(void)
 {
-	// (void)console_init(PLAT_ARM_BL31_RUN_UART_BASE,
-	// 		   PLAT_ARM_BOOT_UART_CLK_IN_HZ, ARM_CONSOLE_BAUDRATE);
+	(void)_console_init(PLAT_ARM_BOOT_UART_BASE,
+			   PLAT_ARM_BOOT_UART_CLK_IN_HZ, ARM_CONSOLE_BAUDRATE);
 
     /* Allow reading normal memory from secure world in Titanium */
 //    tzc_disable_filters();

@@ -319,6 +319,8 @@ SECTIONS
 	. += PAGE_SIZE;
 	__svisor_pg_dir = .;
 	. += PAGE_SIZE;
+	__svisor_idmap_dir = .;
+	. += PAGE_SIZE;
 	. = ALIGN(SZ_2M);
 	__svisor_early_alloc_base = .;
 	. += SZ_128K;
