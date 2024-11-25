@@ -7,6 +7,7 @@
 #include <s-visor/lib/stdio.h>
 #include <s-visor/lib/assert.h>
 #include <s-visor/lib/stdarg.h>
+#include <s-visor/common/lock.h>
 
 #define get_num_va_args(_args, _lcount)				\
 	(((_lcount) > 1)  ? va_arg(_args, long long int) :	\
@@ -17,6 +18,8 @@
 	(((_lcount) > 1)  ? va_arg(_args, unsigned long long int) :	\
 	(((_lcount) == 1) ? va_arg(_args, unsigned long int) :		\
 			    va_arg(_args, unsigned int)))
+
+struct lock __secure_data print_lock;
 
 static int __secure_text string_print(const char *str)
 {
@@ -181,13 +184,34 @@ loop:
 	return count;
 }
 
+void __secure_text print_lock_init(void)
+{
+	lock_init(&print_lock);
+}
+
 int __secure_text printf(const char *fmt, ...)
 {
 	int count;
 	va_list va;
 
 	va_start(va, fmt);
+	lock(&print_lock);
 	count = vprintf(fmt, va);
+	unlock(&print_lock);
+	va_end(va);
+
+	return count;
+}
+
+int __secure_text printf_error(const char *fmt, ...)
+{
+	int count;
+	va_list va;
+
+	va_start(va, fmt);
+	lock(&print_lock);
+	count = vprintf(fmt, va);
+	unlock(&print_lock);
 	va_end(va);
 
 	return count;

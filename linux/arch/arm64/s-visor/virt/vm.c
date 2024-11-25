@@ -8,6 +8,7 @@
 
 #include <s-visor/s-visor.h>
 #include <s-visor/common/list.h>
+#include <s-visor/common/macro.h>
 #include <s-visor/sched/smp.h>
 #include <s-visor/mm/mm.h>
 #include <s-visor/mm/buddy_allocator.h>
@@ -93,17 +94,17 @@ void __secure_text init_vms(void)
 
     memset(&global_titanium_states, 0, sizeof(struct titanium_state) * SVISOR_PHYSICAL_CORE_NUM);
     // init_vgic();
-    // print_lock_init();
+    print_lock_init();
 }
 
 void __secure_text kvm_shared_memory_register(void)
 {
 	if (!titanium_shared_pages) {
 		titanium_shared_pages = (uint64_t *)pa2va(titanium_shared_pages_phys);
-		// printf("%s: %d shared memory addr is %p.\n", __func__, __LINE__,
-		//         titanium_shared_pages);
+		printf("%s: %d shared memory addr is %p.\n", __func__, __LINE__,
+		        titanium_shared_pages);
 	} else {
-		// printf("%s: %d shared memory already set up\n", __func__, __LINE__);
+		printf("%s: %d shared memory already set up\n", __func__, __LINE__);
 	}
 }
 
@@ -165,12 +166,12 @@ static int __secure_text init_empty_vm(struct titanium_vm *vm, int vm_id, char *
  */
 struct titanium_vm * __secure_text get_vm_by_id(int vm_id)
 {
-    struct titanium_vm *vm = NULL;
-    for_each_in_list(vm, struct titanium_vm, vm_list_node, &titanium_vm_list) {
-        if (vm->vm_id == vm_id)
-            return vm;
-    }
-    return NULL; //not found
+	struct titanium_vm *vm = NULL;
+	for_each_in_list(vm, struct titanium_vm, vm_list_node, &titanium_vm_list) {
+		if (vm->vm_id == vm_id)
+			return vm;
+	}
+	return NULL; //not found
 }
 
 void __secure_text kvm_shared_memory_handle(void)
@@ -185,11 +186,11 @@ void __secure_text kvm_shared_memory_handle(void)
 			break;
 		}
 		case REQ_KVM_TO_TITANIUM_REMAP_IPA: {
-			// printf("REQ_KVM_TO_TITANIUM_REMAP_IPA unsupported now\n");
+			printf("REQ_KVM_TO_TITANIUM_REMAP_IPA unsupported now\n");
 			break;
 		}
 		case REQ_KVM_TO_TITANIUM_UNMAP_IPA: {
-			// printf("REQ_KVM_TO_TITANIUM_UNMAP_IPA unsupported now\n");
+			printf("REQ_KVM_TO_TITANIUM_UNMAP_IPA unsupported now\n");
 			break;
 		}
 		case REQ_KVM_TO_TITANIUM_MEMCPY: {
@@ -199,11 +200,10 @@ void __secure_text kvm_shared_memory_handle(void)
 			break;
 		}
 		case REQ_KVM_TO_TITANIUM_BOOT: {
-			// printf("Boot kvm with id %d\n", kvm_smc_req->sec_vm_id);
-			kvm_vm =
-				(struct titanium_vm *)bd_alloc(sizeof(*kvm_vm), 0);
-			// printf("------------------------------\n");
-			// printf("Boot kvm %p with id %d\n", kvm_vm, kvm_smc_req->sec_vm_id);
+			printf("Boot kvm with id %d\n", kvm_smc_req->sec_vm_id);
+			kvm_vm = (struct titanium_vm *)bd_alloc(sizeof(*kvm_vm), 0);
+			printf("------------------------------\n");
+			printf("Boot kvm %p with id %d\n", kvm_vm, kvm_smc_req->sec_vm_id);
 			init_empty_vm(kvm_vm, kvm_smc_req->sec_vm_id, "kvm_vm", vcpu_num);
 			for (i = 0U; i < vcpu_num; ++i) {
 				/** For now, core_id == vcpu_id */
@@ -232,7 +232,7 @@ void __secure_text kvm_shared_memory_handle(void)
 			break;
 		}
 		default:
-			// BUG("no such shared memory request\n");
+			_BUG("no such shared memory request\n");
 			break;
 	}
 }

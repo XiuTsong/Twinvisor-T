@@ -6,6 +6,8 @@
 #ifndef __SVISOR_COMMON_MACRO_H__
 #define __SVISOR_COMMON_MACRO_H__
 
+#include <s-visor/lib/stdio.h>
+
 #define _BUG_ON(expr, str) \
 	do { \
 		if ((expr)) { \
