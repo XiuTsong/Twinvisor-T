@@ -10,3 +10,4 @@ asflags-y := -fno-stack-protector
 obj-y += vm.o
 obj-y += guest_helpers.o
 obj-y += kvm_relay.o
+obj-y += sec_vgic.o
