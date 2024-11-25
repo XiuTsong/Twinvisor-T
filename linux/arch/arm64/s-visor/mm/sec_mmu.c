@@ -1007,6 +1007,8 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 	} else if (!IS_PTE_TABLE(l0_entry.pte)) {
 		/* Huge page should be disabled */
 		return -EINVAL;
+	} else {
+		next_ptp = (s1_ptp_t *)pfn2va(l0_entry.table.next_table_addr);
 	}
 
 	l1_table = next_ptp;
@@ -1031,6 +1033,8 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 	} else if (!IS_PTE_TABLE(l1_entry.pte)) {
 		/* Huge page should be disabled */
 		return -EINVAL;
+	} else {
+		next_ptp = (s1_ptp_t *)pfn2va(l1_entry.table.next_table_addr);
 	}
 
 	l2_table = next_ptp;
@@ -1055,6 +1059,8 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 	} else if (!IS_PTE_TABLE(l2_entry.pte)) {
 		/* Huge page should be disabled */
 		return -EINVAL;
+	} else {
+		next_ptp = (s1_ptp_t *)pfn2va(l2_entry.table.next_table_addr);
 	}
 
 	l3_table = next_ptp;
