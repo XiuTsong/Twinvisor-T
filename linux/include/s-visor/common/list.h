@@ -8,10 +8,9 @@
 
 #include <s-visor/common/list_common.h>
 #include <s-visor/common/macro.h>
+#include <linux/list.h>
 
 void list_init(struct list_head* head);
-
-int list_empty(struct list_head* head);
 
 void list_remove(struct list_head *node);
 
