@@ -193,7 +193,6 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *handle, uint32_t sm
 				is_fixup_vttbr[linear_id] = 0;
 				cm_set_elr_el3(SECURE, fixup_vttbr_elr_el3[linear_id]);
 			}
-			memcpy(get_gpregs_ctx(&titanium_ctx->cpu_ctx), get_gpregs_ctx(handle), sizeof(gp_regs_t));
 			break;
 		case SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_REGISTER:
 			cm_set_elr_el3(SECURE,
@@ -255,14 +254,12 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 	switch (smc_imm) {
 		case SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC:
 		case SMC_IMM_TITANIUM_TO_KVM_TRAP_IRQ:
-			memcpy(get_gpregs_ctx(ns_cpu_context), get_gpregs_ctx(handle), sizeof(gp_regs_t));
 			/* skip the first eight handler */
 			cm_set_elr_el3(NON_SECURE,
 						   (uint64_t)cm_get_vbar_el2(NON_SECURE) + (8 + exit_value) * 0x80);
 			break;
 		case SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR:
 			asm volatile("mrs %0, elr_el2" : "=r" (fixup_vttbr_elr_el3[linear_id]));
-			memcpy(get_gpregs_ctx(ns_cpu_context), get_gpregs_ctx(handle), sizeof(gp_regs_t));
 			is_fixup_vttbr[linear_id] = 1;
 			/* Set exit_value the same as SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC */
 			exit_value = 0;
