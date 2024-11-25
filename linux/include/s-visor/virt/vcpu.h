@@ -10,6 +10,7 @@
 
 #include <s-visor/s-visor.h>
 #include <s-visor/mm/sec_shm.h>
+#include <s-visor/virt/sec_vgic.h>
 
 enum vcpu_state {
     VCPU_INIT = 0,
@@ -88,7 +89,7 @@ struct titanium_state {
     /* For guest-entry.S use */
     struct titanium_entry_helper entry_helper;
     struct titanium_sys_reg_emulate emulate;
-    // struct titanium_vgic vgic;
+    struct titanium_vgic vgic;
 };
 
 /* titanium_decode is the same as kvm_decode */
