@@ -50,6 +50,7 @@
 #ifdef CONFIG_S_VISOR
 #include <s-visor/n-visor.h>
 #include <s-visor/mm/mmu.h>
+#include <s-visor/drivers/console.h>
 #endif
 
 #define NO_BLOCK_MAPPINGS	BIT(0)
@@ -560,6 +561,17 @@ static void __init map_svisor_other(pgd_t *pgdp)
 						 PAGE_KERNEL, early_secure_alloc, 0);
 }
 
+static void __init map_svisor_device(pgd_t *pgdp)
+{
+	unsigned long va_start = (unsigned long)PLAT_ARM_BOOT_UART_BASE;
+	unsigned long size = SZ_2M;
+
+	/* Identity mapping here */
+	__create_pgd_mapping(pgdp, va_start, va_start,
+						 size,
+						 __pgprot(PROT_DEVICE_nGnRnE), early_secure_alloc, 0);
+}
+
 static void __init print_svisor_layout(void)
 {
 	pr_info("***** svisor .text start: %lx end: %lx\n", (unsigned long)__svisor_text_start, (unsigned long)__svisor_text_end);
@@ -577,6 +589,11 @@ void __init map_svisor(void)
 	pgdp = pgd_set_fixmap(pgd_phys);
 	map_svisor_text(pgdp);
 	map_svisor_other(pgdp);
+	pgd_clear_fixmap();
+
+	pgd_phys = SECURE_IDMAP_DIR_PHYS;
+	pgdp = pgd_set_fixmap(pgd_phys);
+	map_svisor_device(pgdp);
 	pgd_clear_fixmap();
 }
 

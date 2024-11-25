@@ -51,6 +51,7 @@ static void setup_svisor_pgtable(void)
 	el1_sysregs_t *el1_sys_regs = get_el1_sysregs_ctx(cpu_ctx);
 
 	write_ctx_reg(el1_sys_regs, CTX_TTBR1_EL1, SECURE_PG_DIR_PHYS);
+	write_ctx_reg(el1_sys_regs, CTX_TTBR0_EL1, SECURE_IDMAP_DIR_PHYS);
 }
 
 extern void el3_context_init(void);
