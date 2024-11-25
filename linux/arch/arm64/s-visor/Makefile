@@ -15,3 +15,4 @@ obj-y += core/
 obj-y += mm/
 obj-y += virt/
 obj-y += el3/
+obj-y += drivers/
