@@ -24,4 +24,9 @@
 #define ESR_EL_EC_MASK		((0x3F) << ESR_EL_EC_SHIFT)
 #define ESR_EL_EC(esr)		(((esr) & ESR_EL_EC_MASK) >> ESR_EL_EC_SHIFT)
 
+#define HOST_SYNC      0 /* Normal sync vmexit */
+#define CALL_GATE_SYNC 1 /* Call-gate vmexit, need reenter guest */
+#define GUEST_SYNC     2 /* Guest handle case, set flag and reenter */
+#define GUEST_IRQ     3 /* Guest handle case, set flag and reenter */
+
 #endif

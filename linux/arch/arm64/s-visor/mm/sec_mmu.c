@@ -1093,6 +1093,12 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 	return 0;
 }
 
+__secure_text
+int map_vfn_to_pfn_spt(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn)
+{
+	return s1mmu_map_vfn_to_pfn(s1ptp, vfn, pfn, NULL);
+}
+
 #ifdef CONFIG_SEL1_OPT
 int write_spt_pte_1(struct s1mmu *s1mmu, unsigned long fault_ipa,
 		    unsigned long val, unsigned long old_val, int level)

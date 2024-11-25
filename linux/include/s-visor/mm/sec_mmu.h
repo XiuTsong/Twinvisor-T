@@ -37,8 +37,13 @@ int destroy_tmp_spt(void *ttbr);
 int write_spt_pte(struct s1mmu *s1mmu, paddr_t fault_ipa, paddr_t val, int level);
 void switch_spt(struct s1mmu *s1mmu, unsigned long ttbr, enum ttbr_type type);
 int destroy_spt(struct s1mmu *s1mmu, unsigned long ttbr, enum ttbr_type type);
-s1_pte_t translate_spt(s1_ptp_t *s1ptp, vaddr_t vfn);
+
+/* 4-level stage-1 page table translation */
+#define translate_spt translate_stage1_pt_s
+s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, vaddr_t vfn);
+
 int map_shm_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp);
+int map_vfn_to_pfn_spt(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn);
 
 #ifdef CONFIG_SEL1_OPT
 int write_spt_pte_1(struct s1mmu *s1mmu, paddr_t fault_ipa, paddr_t val, paddr_t old_val, int level);

@@ -8,6 +8,11 @@
 
 #include <s-visor/lib/utils_def.h>
 
+#define ARM_SMCCC_STD_CALL	        0
+#define ARM_SMCCC_FAST_CALL	        1
+#define ARM_SMCCC_KVM_TRAP_CALL	    2
+#define ARM_SMCCC_TYPE_SHIFT		31UL
+
 #define SMCCC_VERSION_MAJOR_SHIFT	U(16)
 #define SMCCC_VERSION_MAJOR_MASK	U(0x7FFF)
 #define SMCCC_VERSION_MINOR_SHIFT	U(0)
