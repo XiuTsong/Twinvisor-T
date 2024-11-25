@@ -26,6 +26,6 @@ void __before_nvisor_smc(struct smc_local_context *ctx)
 void __after_nvisor_smc(struct smc_local_context *ctx)
 {
 	write_sysreg(ctx->vbar_el2, vbar_el2);
-	cm_el2_eret_state_restore(NON_SECURE);
 	local_irq_restore(ctx->flags);
+	cm_el2_eret_state_restore(NON_SECURE);
 }
