@@ -38,7 +38,10 @@
 
 #ifndef __ASSEMBLY__
 
+#include <asm/sections.h>
 #include <s-visor/lib/stdint.h>
+
+#define SVISOR_UART_BASE	((unsigned long)__svisor_end)
 
 typedef struct _console {
 	struct _console *next;

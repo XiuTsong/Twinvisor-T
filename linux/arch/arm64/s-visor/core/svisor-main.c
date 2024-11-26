@@ -14,7 +14,7 @@
 
 int __secure_text init_primary_core(void)
 {
-	(void)_console_init(PLAT_ARM_BOOT_UART_BASE,
+	(void)_console_init(SVISOR_UART_BASE,
 			   PLAT_ARM_BOOT_UART_CLK_IN_HZ, ARM_CONSOLE_BAUDRATE);
 
     /* Allow reading normal memory from secure world in Titanium */
