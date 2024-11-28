@@ -203,7 +203,9 @@ inline void boot_titanium_secure_vm(u32 sec_vm_id)
 	smc_req->req_type = REQ_KVM_TO_TITANIUM_BOOT;
 	smc_req->boot.qemu_s1ptp = qemu_s1ptp;
 	pr_err("%s:%d Sending KVM_SMC_BOOT ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
+#ifdef CONFIG_S_VISOR
 	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_HANDLE);
+#endif
 	pr_err("%s:%d Return from KVM_SMC_BOOT\n", __func__, smp_processor_id());
 }
 /**
@@ -277,7 +279,9 @@ inline static void destroy_titanium_secure_vm(u32 sec_vm_id)
 	smc_req->sec_vm_id = sec_vm_id;
 	smc_req->req_type = REQ_KVM_TO_TITANIUM_SHUTDOWN;
 	pr_err("%s:%d Sending KVM_SMC_SHUTDOWN ID: %d\n", __func__, smp_processor_id(), sec_vm_id);
+#ifdef CONFIG_S_VISOR
 	nvisor_smc(SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_HANDLE);
+#endif
 	pr_err("%s:%d Return from KVM_SMC_SHUTDOWN\n", __func__, smp_processor_id());
 }
 
