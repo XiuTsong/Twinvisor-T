@@ -36,6 +36,9 @@
 extern char __svisor_handler[];
 struct titanium_vectors __el3_data *titanium_vector_table;
 
+extern char __kvm_hyp_vector[];
+#define NVISOR_HYP_VECTOR_BASE ((unsigned long)__kvm_hyp_vector)
+
 /*******************************************************************************
  * Array to keep track of per-cpu TITANIUM state
  ******************************************************************************/
@@ -64,8 +67,8 @@ static void __el3_text pass_el2_return_state_to_el1(titanium_context_t *titanium
 
 static void __el3_text pass_el1_return_state_to_el2(titanium_context_t *titanium_ctx)
 {
-	uint64_t elr_el1 = read_sysreg(elr_el1);
-	uint64_t spsr_el1 = read_sysreg(spsr_el1);
+	uint64_t elr_el1 = read_sysreg(elr_el12);
+	uint64_t spsr_el1 = read_sysreg(spsr_el12);
 
 	/* Pass ELR_EL1 to ELR_EL2 */
 	write_sysreg(elr_el1, elr_el2);
@@ -76,8 +79,8 @@ static void __el3_text pass_el1_return_state_to_el2(titanium_context_t *titanium
 
 static void __el3_text pass_el1_fault_state_to_el2(titanium_context_t *titanium_ctx)
 {
-	unsigned long esr_el1 = read_sysreg(esr_el1);
-	unsigned long far_el1 = read_sysreg(far_el1);
+	unsigned long esr_el1 = read_sysreg(esr_el12);
+	unsigned long far_el1 = read_sysreg(far_el12);
 	unsigned long hpfar_el2 = 0;
 	uint64_t kvm_exit_reason = ESR_EL_EC(esr_el1);
 
@@ -264,7 +267,7 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 		case SMC_IMM_TITANIUM_TO_KVM_TRAP_IRQ:
 			/* skip the first eight handler */
 			cm_set_elr_el3(NON_SECURE,
-						   (uint64_t)cm_get_vbar_el2(NON_SECURE) + (8 + exit_value) * 0x80);
+						   NVISOR_HYP_VECTOR_BASE + (8 + exit_value) * 0x80);
 			break;
 		case SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR:
 			asm volatile("mrs %0, elr_el2" : "=r" (fixup_vttbr_elr_el3[linear_id]));
@@ -272,7 +275,7 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 			/* Set exit_value the same as SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC */
 			exit_value = 0;
 			cm_set_elr_el3(NON_SECURE,
-						   (uint64_t)cm_get_vbar_el2(NON_SECURE) + (8 + exit_value) * 0x80);
+						   NVISOR_HYP_VECTOR_BASE + (8 + exit_value) * 0x80);
 			break;
 		case SMC_IMM_TITANIUM_TO_KVM_SHARED_MEMORY:
 		case SMC_IMM_TITANIUM_TO_KVM_RETURN:
