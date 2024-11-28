@@ -219,6 +219,14 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *handle, uint32_t sm
 	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_HCR_EL2, read_sysreg(hcr_el2));
 	write_sysreg(HCR_E2H | HCR_RW, hcr_el2);
 
+	/*
+	 * We clear bits in MDCR_EL2 to avoid guest trapping to EL2
+	 * when they access to debug and performance related registers.
+	 * Only MDCR_EL2.HPMN is preserved now.
+	 */
+	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_MDCR_EL2, read_sysreg(mdcr_el2));
+	write_sysreg(read_sysreg(mdcr_el2) & MDCR_EL2_HPMN_MASK, mdcr_el2);
+
 	cm_set_next_eret_context(SECURE);
 	SMC_RET0(&titanium_ctx->cpu_ctx);
 }
@@ -273,10 +281,11 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 			el3_panic();
 	}
 
-	/*
-	 * We will return to n-visor, set the original HCR_EL2.
-	 */
+	/* We will return to n-visor, set the original HCR_EL2. */
 	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_context), CTX_HCR_EL2), hcr_el2);
+
+	/* Restore MDCR_EL2 */
+	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_context), CTX_MDCR_EL2), mdcr_el2);
 
 	cm_set_next_eret_context(NON_SECURE);
 	SMC_RET0(ns_cpu_context);
