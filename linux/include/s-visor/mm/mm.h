@@ -33,6 +33,8 @@ extern unsigned long __secure_data linux_vp_offset;
 #define _phys_to_virt(x) __pa2va(x)
 #define _virt_to_phys(x) __va2pa(x)
 
+#define __page_aligned __attribute__((__aligned__(PAGE_SIZE)))
+
 void mm_primary_init(void);
 void mm_secondary_init(void);
 
