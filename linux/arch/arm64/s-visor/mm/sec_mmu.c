@@ -5,6 +5,8 @@
 
 #include <linux/errno.h>
 #include <asm/sysreg.h>
+#include <asm/kvm_arm.h>
+#include <asm/pgtable-hwdef.h>
 
 #include <s-visor/s-visor.h>
 #include <s-visor/mm/sec_mmu.h>
@@ -36,10 +38,9 @@ __secure_text
 static unsigned long ipa2hva(unsigned long vttbr_value, unsigned long ipa)
 {
 	unsigned long hpa = 0, hva = 0;
-	unsigned long offset = ipa & PAGE_MASK;
-	unsigned long s2pt_mask = ~(~((1UL << 48) - 1) | PAGE_MASK);
+	unsigned long offset = ipa & PAGE_MASK_INV;
 	pte_t target_pte;
-	ptp_t *s2ptp = (ptp_t *)(vttbr_value & s2pt_mask);
+	ptp_t *s2ptp = (ptp_t *)(vttbr_value & VTTBR_BADDR_MASK);
 
 	target_pte = translate_stage2_pt(s2ptp, (ipa >> PAGE_SHIFT));
 	if (target_pte.l3_page.is_valid) {
@@ -60,8 +61,7 @@ static unsigned long fixup_ipn_to_hpn(unsigned long vttbr_value,
 {
 	unsigned long hpn = 0;
 	pte_t target_pte;
-	unsigned long s2pt_mask = ~(~((1UL << 48) - 1) | PAGE_MASK);
-	ptp_t *s2ptp = (ptp_t *)(vttbr_value & s2pt_mask);
+	ptp_t *s2ptp = (ptp_t *)(vttbr_value & VTTBR_BADDR_MASK);
 
 	/* We only translate ipn within [0x40000, 0x80000) or
      * ipn == 0x8010 or 0x8011 to hpn.

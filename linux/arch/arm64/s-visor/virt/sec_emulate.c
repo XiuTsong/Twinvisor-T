@@ -156,7 +156,7 @@ static void emulate_mmio_esr(struct titanium_state *state, unsigned long *esr_el
 		printf("Decode instruction failed, fault addr: %lx, ttbr: %p\n", fault_pc, ttbr);
 		return;
 	}
-	fault_pc_pa = ((uint64_t)entry.l3_page.pfn << PAGE_SHIFT) | (fault_pc & PAGE_MASK);
+	fault_pc_pa = ((uint64_t)entry.l3_page.pfn << PAGE_SHIFT) | (fault_pc & PAGE_MASK_INV);
 
 	arm64_code = *((uint32_t*)phys_to_virt(fault_pc_pa));
 	arch_decode(arm64_code, &kvm_decode, &is_write, &size);
@@ -209,7 +209,7 @@ int emulate_mmio_fault(struct titanium_state *state, unsigned long fault_ipa, ui
 		* See sel1_mmu.c: set_spt_l3_entry().
 		* We should convert it to ipa and fill it into FAR_EL1.
 		*/
-	real_fault_ipa = ((uint64_t)entry.l3_page.pfn << PAGE_SHIFT) | (fault_ipa & PAGE_MASK);
+	real_fault_ipa = ((uint64_t)entry.l3_page.pfn << PAGE_SHIFT) | (fault_ipa & PAGE_MASK_INV);
 	write_sysreg(real_fault_ipa, far_el1);
 
 	/* Construct esr_el1 */

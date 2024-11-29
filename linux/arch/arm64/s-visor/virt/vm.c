@@ -4,6 +4,8 @@
  */
 #include <asm/page-def.h>
 #include <asm/sysreg.h>
+#include <asm/kvm_arm.h>
+#include <asm/pgtable-hwdef.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 
@@ -196,9 +198,8 @@ struct titanium_vm * __secure_text get_vm_by_id(int vm_id)
 static void __secure_text sync_vttbr_to_spt(struct titanium_vm *target_vm, uint64_t vcpu_id) {
 	paddr_t fault_ipn = target_vm->vcpus[vcpu_id]->fault_ipn;
 	paddr_t vttbr_value = target_vm->vttbr_el2;
-	unsigned long s2pt_mask = ~(~((1UL << 48) - 1) | PAGE_MASK);
 	pte_t target_pte;
-	ptp_t *s2ptp = (ptp_t *)(vttbr_value & s2pt_mask);
+	ptp_t *s2ptp = (ptp_t *)(vttbr_value & VTTBR_BADDR_MASK);
 	struct titanium_vcpu *target_vcpu = target_vm->vcpus[vcpu_id];
 
 	// FIXME: Does we need to flush_dcache_and_tlb when el2 is disable
