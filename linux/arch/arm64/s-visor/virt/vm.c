@@ -2,6 +2,8 @@
  * @Description: titanium vm.c
  * @Date: 2024-11-08 14:40:40
  */
+#include "s-visor/mm/sec_shm.h"
+#include "s-visor/virt/sec_defs.h"
 #include <asm/page-def.h>
 #include <asm/sysreg.h>
 #include <asm/kvm_arm.h>
@@ -15,6 +17,7 @@
 #include <s-visor/lib/el3_runtime/smccc.h>
 #include <s-visor/sched/smp.h>
 #include <s-visor/mm/mm.h>
+#include <s-visor/mm/mmu.h>
 #include <s-visor/mm/buddy_allocator.h>
 #include <s-visor/mm/page_allocator.h>
 #include <s-visor/mm/sec_mmu.h>
@@ -195,27 +198,23 @@ struct titanium_vm * __secure_text get_vm_by_id(int vm_id)
 /* Sync 1 PTE from vttbr to shadow page table.
  * Only used in early stage.
  */
-static void __secure_text sync_vttbr_to_spt(struct titanium_vm *target_vm, uint64_t vcpu_id) {
+static void __secure_text sync_vttbr_to_spt(struct titanium_vm *target_vm, uint64_t vcpu_id)
+{
 	paddr_t fault_ipn = target_vm->vcpus[vcpu_id]->fault_ipn;
 	paddr_t vttbr_value = target_vm->vttbr_el2;
 	pte_t target_pte;
-	ptp_t *s2ptp = (ptp_t *)(vttbr_value & VTTBR_BADDR_MASK);
 	struct titanium_vcpu *target_vcpu = target_vm->vcpus[vcpu_id];
 
-	// FIXME: Does we need to flush_dcache_and_tlb when el2 is disable
-	// flush_dcache_and_tlb();
 	target_vcpu->is_s2pt_violation = 0;
-	target_pte = translate_stage2_pt(s2ptp, fault_ipn);
+	target_pte = translate_stage2_pt(vttbr_value & VTTBR_BADDR_MASK, fault_ipn);
 	if (target_pte.l3_page.is_valid) {
-		map_vfn_to_pfn_spt((s1_ptp_t *)target_vcpu->s1mmu->ttbr0_spt.tmp_ttbr, fault_ipn, target_pte.l3_page.pfn);
+		map_vfn_to_pfn_spt((s1_ptp_t *)get_tmp_ttbr0(target_vcpu->s1mmu), fault_ipn, target_pte.l3_page.pfn);
 		// printf("sync fault_ipn: %lx to hpn: %llx\n", fault_ipn, target_pte.l3_page.pfn);
 	} else {
 		printf("%s: target_pte is invalid\n", __func__);
 		asm volatile("b .\n");
 	}
-	/* TODO: adjust the address range of secure memory region */
 }
-
 
 extern u_register_t set_guest_tpidr(u_register_t val);
 
@@ -228,6 +227,16 @@ static void __secure_text switch_tpidr(uint64_t core_id)
 	g_tpidr[core_id] = tpidr_el1_svisor;
 }
 
+static inline void __secure_text prepare_shm_base(struct titanium_vm *vm)
+{
+	struct sec_shm *shm = get_shared_mem(vm, 0);
+
+	/* Prefill pgdir phys in shm */
+	shm->ttbr_phys = SECURE_PG_DIR_PHYS;
+	/* Prefill high address offset in shm */
+	shm->high_addr_offset = HYP_VECTOR_HIGH - (unsigned long)titanium_hyp_vector;
+}
+
 #define write_shared_mem(shm_base, pos, val)            \
 	do {                                                \
 		u_register_t *ptr = (u_register_t *)shm_base;   \
@@ -237,30 +246,24 @@ static void __secure_text switch_tpidr(uint64_t core_id)
 /* Save guest's x0, x1, tpidr_el1, guest_vector in shared memory before enter_guest() */
 static void __secure_text prepare_shared_memory(struct titanium_state *state, uint32_t core_id, uint32_t vcpu_id)
 {
-	u_register_t x0, x1, tpidr_el1;
 	struct gp_regs *gp_regs = &state->current_vcpu_ctx.gp_regs;
 	struct sys_regs *sys_regs = &state->current_vcpu_ctx.sys_regs;
+	struct titanium_vm *vm = state->current_vm;
 	struct sec_shm *shm = NULL;
 
-	shm = get_shared_mem(state->current_vm, core_id);
+	shm = get_shared_mem(vm, core_id);
 	if (shm == NULL) {
 		printf("shared_mem is NULL\n");
 		asm volatile("b .\n");
 	}
 	state->shared_mem = shm;
-	x0 = gp_regs->x[0];
-	x1 = gp_regs->x[1];
-	tpidr_el1 = sys_regs->tpidr;
 	/* TODO: Refactor struct secure_shared_mem */
-	write_shared_mem(shm, 0, x0);
-	write_shared_mem(shm, 1, x1);
-	write_shared_mem(shm, 2, tpidr_el1);
-	write_shared_mem(shm, 3, state->entry_helper.vbar_target);
-	/*
-	 * Optimization: for guest_entry.S:jump_vect use
-	 * guest_vector offset must > 4 * 8
-	 */
-	shm->guest_vector = state->current_vm->guest_vector;
+	shm->x0 = gp_regs->x[0];
+	shm->x1 = gp_regs->x[1];
+	shm->tpidr = sys_regs->tpidr;
+	shm->vbar_target = state->entry_helper.vbar_target;
+	shm->guest_vector = vm->guest_vector;
+	prepare_shm_base(vm);
 }
 
 static void __secure_text trace_vm_exit(struct titanium_state *state, int exit_code, uint32_t core_id)
@@ -297,7 +300,6 @@ static void __secure_text prepare_jump_target(struct titanium_entry_helper *entr
 	break;
 	}
 }
-
 
 static int __secure_text fixup_titanium_vm_exit(struct titanium_state *state, int exit_code,
 												uint32_t core_id, uint32_t vcpu_id)
@@ -357,12 +359,15 @@ static void __secure_text handle_vgic_interrupt(struct titanium_state *state, st
 	}
 }
 
-static void __secure_text init_vm_el2_regs(kvm_smc_req_t *kvm_smc_req, struct titanium_vm *vm, uint64_t vcpu_id)
+static inline void __secure_text init_vm_el2_regs(kvm_smc_req_t *kvm_smc_req, struct titanium_vm *vm)
 {
-    struct titanium_vcpu *vcpu = vm->vcpus[vcpu_id];
+	vm->vpidr_el2 = kvm_smc_req->el2_regs.vpidr_el2;
+	vm->vttbr_el2 = kvm_smc_req->el2_regs.vttbr_el2;
+}
 
-    vcpu->vmpidr_el2 = kvm_smc_req->el2_regs.vmpidr_el2;
-    vm->vpidr_el2 = kvm_smc_req->el2_regs.vpidr_el2;
+static inline void __secure_text init_vcpu_el2_regs(kvm_smc_req_t *kvm_smc_req, struct titanium_vcpu *vcpu)
+{
+	vcpu->vmpidr_el2 = kvm_smc_req->el2_regs.vmpidr_el2;
 }
 
 static void __secure_text prepare_entry_helper(struct titanium_entry_helper *entry_helper,
@@ -374,14 +379,14 @@ static void __secure_text prepare_entry_helper(struct titanium_entry_helper *ent
 
 	if (vcpu->is_vm_mmu_enable) {
 		if (vcpu->use_shadow_ttbr0) {
-			entry_helper->guest_ttbr0_el1 = get_shadow_ttbr0(s1mmu);
+			entry_helper->guest_ttbr0_el1 = get_shadow_ttbr0_phys(s1mmu);
 		} else {
-			entry_helper->guest_ttbr0_el1 = get_tmp_ttbr0(s1mmu);
+			entry_helper->guest_ttbr0_el1 = get_tmp_ttbr0_phys(s1mmu);
 		}
-		entry_helper->guest_ttbr1_el1 = get_shadow_ttbr1(s1mmu);
+		entry_helper->guest_ttbr1_el1 = get_shadow_ttbr1_phys(s1mmu);
 	} else {
-		entry_helper->guest_ttbr0_el1 = get_tmp_ttbr0(s1mmu);
-		entry_helper->guest_ttbr1_el1 = get_tmp_ttbr1(s1mmu);
+		entry_helper->guest_ttbr0_el1 = get_tmp_ttbr0_phys(s1mmu);
+		entry_helper->guest_ttbr1_el1 = get_tmp_ttbr1_phys(s1mmu);
 	}
 }
 
@@ -417,6 +422,16 @@ static void __secure_text context_switch_to_vcpu(struct titanium_state *state,
 	}
 }
 
+static void install_hyp_vector_high(void)
+{
+	write_sysreg((unsigned long)HYP_VECTOR_HIGH, vbar_el1);
+}
+
+static void restore_hyp_vector(void)
+{
+	write_sysreg((unsigned long)titanium_hyp_vector, vbar_el1);
+}
+
 /* forward smc request to the corresponding VM */
 int __secure_text forward_smc_to_vm(struct titanium_state *state, int smc_type)
 {
@@ -424,7 +439,6 @@ int __secure_text forward_smc_to_vm(struct titanium_state *state, int smc_type)
 	uint64_t core_id = get_core_id();
 	uint64_t vcpu_id = core_id;
 	kvm_smc_req_t* kvm_smc_req = NULL;
-	u_register_t vttbr_value;
 	struct titanium_vcpu *target_vcpu = NULL;
 	int exit_code;
 
@@ -439,26 +453,28 @@ int __secure_text forward_smc_to_vm(struct titanium_state *state, int smc_type)
 		printf("target vm %d is null", kvm_smc_req->sec_vm_id);
 		_BUG("target vm NULL");
 	}
+
 	/* check whether KVM's updates are malicious */
 	// check_vm_state(target_vm);
 
+	if (!target_vm->is_booted) {
+		init_vm_el2_regs(kvm_smc_req, target_vm);
+	}
+
 	target_vcpu = target_vm->vcpus[vcpu_id];
-	vttbr_value = kvm_smc_req->el2_regs.vttbr_el2;
+	init_vcpu_el2_regs(kvm_smc_req, target_vcpu);
 	if (target_vcpu->is_s2pt_violation) {
-		target_vm->vttbr_el2 = vttbr_value;
-		target_vcpu->s1mmu->vttbr_el2 = vttbr_value;
+		target_vcpu->s1mmu->vttbr_el2 = target_vm->vttbr_el2;
 		sync_vttbr_to_spt(target_vm, vcpu_id);
 	}
-	/* TODO: Only init el2 regs once */
-	init_vm_el2_regs(kvm_smc_req, target_vm, vcpu_id);
 
 	do {
-		/* If guest enable irq, then there may be interrupt
-			* to be injected.
-			*/
+		/* If guest enable irq, then there may be interrupt to be injected. */
 		handle_vgic_interrupt(state, target_vm, kvm_smc_req, core_id, vcpu_id);
 		context_switch_to_vcpu(state, target_vm, vcpu_id, core_id);
+		install_hyp_vector_high();
 		exit_code = enter_guest(core_id);
+		restore_hyp_vector();
 	} while (fixup_titanium_vm_exit(state, exit_code, core_id, vcpu_id));
 
 	state->current_vm->vm_state = VS_READY;

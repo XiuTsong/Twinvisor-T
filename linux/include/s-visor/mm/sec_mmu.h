@@ -8,6 +8,7 @@
 
 #include <s-visor/mm/spt_info.h>
 #include <s-visor/mm/stage1_mmu.h>
+#include <s-visor/mm/mm.h>
 #include <s-visor/lib/stdint.h>
 #include <s-visor/virt/vm.h>
 
@@ -54,14 +55,18 @@ static inline struct sec_shm* get_shared_mem(struct titanium_vm *vm, _uint32_t c
 	return vm->shms[core_id];
 }
 
-#define get_tmp_ttbr0(s1mmu) (s1mmu->ttbr0_spt.tmp_ttbr)
-#define get_tmp_ttbr1(s1mmu) (s1mmu->ttbr1_spt->tmp_ttbr)
-#define set_tmp_ttbr0(s1mmu, ttbr) (s1mmu->ttbr0_spt.tmp_ttbr = ttbr)
-#define set_tmp_ttbr1(s1mmu, ttbr) (s1mmu->ttbr1_spt->tmp_ttbr = ttbr)
-#define get_shadow_ttbr0(s1mmu) (s1mmu->ttbr0_spt.shadow_ttbr)
-#define get_shadow_ttbr1(s1mmu) (s1mmu->ttbr1_spt->shadow_ttbr)
-#define set_shadow_ttbr0(s1mmu, ttbr) (s1mmu->ttbr0_spt.shadow_ttbr = ttbr)
-#define set_shadow_ttbr1(s1mmu, ttbr) (s1mmu->ttbr1_spt->shadow_ttbr = ttbr)
+#define get_tmp_ttbr0(s1mmu) pa2va(s1mmu->ttbr0_spt.tmp_ttbr)
+#define get_tmp_ttbr1(s1mmu) pa2va(s1mmu->ttbr1_spt->tmp_ttbr)
+#define get_tmp_ttbr0_phys(s1mmu) (s1mmu->ttbr0_spt.tmp_ttbr)
+#define get_tmp_ttbr1_phys(s1mmu) (s1mmu->ttbr1_spt->tmp_ttbr)
+#define set_tmp_ttbr0(s1mmu, ttbr) (s1mmu->ttbr0_spt.tmp_ttbr = va2pa(ttbr))
+#define set_tmp_ttbr1(s1mmu, ttbr) (s1mmu->ttbr1_spt->tmp_ttbr = va2pa(ttbr))
+#define get_shadow_ttbr0(s1mmu) pa2va(s1mmu->ttbr0_spt.shadow_ttbr)
+#define get_shadow_ttbr1(s1mmu) pa2va(s1mmu->ttbr1_spt->shadow_ttbr)
+#define get_shadow_ttbr0_phys(s1mmu) (s1mmu->ttbr0_spt.shadow_ttbr)
+#define get_shadow_ttbr1_phys(s1mmu) (s1mmu->ttbr1_spt->shadow_ttbr)
+#define set_shadow_ttbr0(s1mmu, ttbr) (s1mmu->ttbr0_spt.shadow_ttbr = va2pa(ttbr))
+#define set_shadow_ttbr1(s1mmu, ttbr) (s1mmu->ttbr1_spt->shadow_ttbr = va2pa(ttbr))
 
 static inline void set_shadow_ttbr(struct s1mmu *s1mmu, unsigned long ttbr, enum ttbr_type type)
 {

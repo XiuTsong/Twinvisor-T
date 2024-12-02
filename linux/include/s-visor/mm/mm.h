@@ -18,8 +18,8 @@ extern unsigned long __secure_data linux_vp_offset;
 
 #define VP_OFFSET ({ linux_vp_offset; })
 
-#define __pa2va(x) (((unsigned long)(x) + VP_OFFSET))
-#define __va2pa(x) (((unsigned long)(x) - VP_OFFSET))
+#define __pa2va(x) ((unsigned long)(x) == 0 ? UL(0) : ((unsigned long)(x) + VP_OFFSET))
+#define __va2pa(x) ((unsigned long)(x) == 0 ? UL(0) : ((unsigned long)(x) - VP_OFFSET))
 
 #define pa2va __pa2va
 #define va2pa __va2pa

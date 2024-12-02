@@ -9,7 +9,11 @@
 #include <asm/pgtable-hwdef.h>
 
 #include <s-visor/s-visor.h>
+#include <s-visor/lib/el3_runtime/smc.h>
+#include <s-visor/virt/sec_defs.h>
+#include <s-visor/sched/smp.h>
 #include <s-visor/mm/sec_mmu.h>
+#include <s-visor/mm/sec_fixmap.h>
 #include <s-visor/mm/stage2_mmu.h>
 #include <s-visor/mm/stage1_mmu.h>
 #include <s-visor/mm/mm.h>
@@ -40,19 +44,33 @@ static unsigned long ipa2hva(unsigned long vttbr_value, unsigned long ipa)
 	unsigned long hpa = 0, hva = 0;
 	unsigned long offset = ipa & PAGE_MASK_INV;
 	pte_t target_pte;
-	ptp_t *s2ptp = (ptp_t *)(vttbr_value & VTTBR_BADDR_MASK);
 
-	target_pte = translate_stage2_pt(s2ptp, (ipa >> PAGE_SHIFT));
+	target_pte = translate_stage2_pt(vttbr_value & VTTBR_BADDR_MASK, (ipa >> PAGE_SHIFT));
+	if (target_pte.l3_page.is_valid) {
+		hpa = (target_pte.l3_page.pfn << PAGE_SHIFT) | offset;
+	} else {
+		printf("%s: target_pte is invalid\n", __func__);
+	}
+	hva = pa2va(hpa);
+
+	return hva;
+}
+
+__secure_text
+static unsigned long ipa2hpa(unsigned long vttbr_value, unsigned long ipa)
+{
+	unsigned long hpa = 0;
+	unsigned long offset = ipa & PAGE_MASK_INV;
+	pte_t target_pte;
+
+	target_pte = translate_stage2_pt(vttbr_value & VTTBR_BADDR_MASK, (ipa >> PAGE_SHIFT));
 	if (target_pte.l3_page.is_valid) {
 		hpa = (target_pte.l3_page.pfn << PAGE_SHIFT) | offset;
 	} else {
 		printf("%s: target_pte is invalid\n", __func__);
 	}
 
-	/* In el1-visor, hpa == hva */
-	hva = pa2va(hpa);
-
-	return hva;
+	return hpa;
 }
 
 __secure_text
@@ -61,12 +79,12 @@ static unsigned long fixup_ipn_to_hpn(unsigned long vttbr_value,
 {
 	unsigned long hpn = 0;
 	pte_t target_pte;
-	ptp_t *s2ptp = (ptp_t *)(vttbr_value & VTTBR_BADDR_MASK);
+	paddr_t s2pt_phys = (vttbr_value & VTTBR_BADDR_MASK);
 
 	/* We only translate ipn within [0x40000, 0x80000) or
-     * ipn == 0x8010 or 0x8011 to hpn.
-     * See decode_kvm_vm_exit() & map_gicv_dev_memory().
-     */
+	 * ipn == 0x8010 or 0x8011 to hpn.
+	 * See decode_kvm_vm_exit() & map_gicv_dev_memory().
+	 */
 	if (!(ipn >= 0x40000 && ipn < 0x80000) && (ipn != 0x8010) &&
 	    (ipn != 0x8011)) {
 		return ipn;
@@ -74,7 +92,7 @@ static unsigned long fixup_ipn_to_hpn(unsigned long vttbr_value,
 	if (ipn == 0x8010 || ipn == 0x8011) {
 		printf("gicv dev memory\n");
 	}
-	target_pte = translate_stage2_pt(s2ptp, ipn);
+	target_pte = translate_stage2_pt(s2pt_phys, ipn);
 	if (target_pte.l3_page.is_valid) {
 		hpn = target_pte.l3_page.pfn;
 	} else {
@@ -84,8 +102,8 @@ static unsigned long fixup_ipn_to_hpn(unsigned long vttbr_value,
 		 */
 		write_sysreg(0x86000047, esr_el1);
 		write_sysreg(ipn << PAGE_SHIFT, far_el1);
-		asm volatile("smc #0x20");
-		target_pte = translate_stage2_pt(s2ptp, ipn);
+		svisor_smc(SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR);
+		target_pte = translate_stage2_pt(s2pt_phys, ipn);
 		if (target_pte.l3_page.is_valid) {
 			hpn = target_pte.l3_page.pfn;
 		} else {
@@ -281,9 +299,12 @@ static int sync_spt_page(struct s1mmu *s1mmu, const s1_ptp_t *orig_pgtbl_ipa,
 						 s1_ptp_t *shadow_pgtbl, int level)
 {
 	uint32_t index;
-	s1_pte_t *orig_entry;
-	s1_pte_t *shadow_entry;
-	s1_ptp_t *orig_pgtbl;
+	s1_pte_t *orig_entry = NULL;
+	s1_pte_t *shadow_entry = NULL;
+	unsigned long orig_ptp_phys;
+	s1_ptp_t *orig_ptp = NULL;
+	unsigned int core_id = get_core_id();
+	unsigned int fixmap_level = level + SEC_FIXMAP_SPT_START;
 	int ret = 0;
 
 	if (!IS_VALID_LEVEL(level)) {
@@ -301,20 +322,26 @@ static int sync_spt_page(struct s1mmu *s1mmu, const s1_ptp_t *orig_pgtbl_ipa,
 		printf("ptp info create failed\n");
 		return ret;
 	}
-	orig_pgtbl = (s1_ptp_t *)ipa2hva(s1mmu->vttbr_el2,
-					 (unsigned long)orig_pgtbl_ipa);
-	if (orig_pgtbl == NULL) {
+	orig_ptp_phys = ipa2hpa(s1mmu->vttbr_el2,
+				(unsigned long)orig_pgtbl_ipa);
+	if (orig_ptp_phys == 0) {
+		printf("ipa not mapped in stage-2 pgtbl\n");
+		return -1;
+	}
+	orig_ptp = set_sec_fixmap(orig_ptp_phys, core_id, fixmap_level);
+	if (orig_ptp == NULL) {
 		printf("ipa not mapped in stage-2 pgtbl\n");
 		return -1;
 	}
 
 	/* Copy the whole page first */
-	memcpy((void *)shadow_pgtbl, (void *)orig_pgtbl, PAGE_SIZE);
+	memcpy((void *)shadow_pgtbl, (void *)orig_ptp, PAGE_SIZE);
 	for (index = 0; index < PTE_NUM; ++index) {
-		orig_entry = &(orig_pgtbl->ent[index]);
+		orig_entry = &(orig_ptp->ent[index]);
 		shadow_entry = &(shadow_pgtbl->ent[index]);
 		sync_spt_pte(s1mmu, orig_entry, shadow_entry, level);
 	}
+	clear_sec_fixmap(core_id, fixmap_level);
 	return ret;
 }
 
@@ -368,19 +395,18 @@ static int map_gate_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp,
 	int ret = 0;
 
 	if (type == TYPE_TTBR0) {
-		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(va2pa(enter_guest)),
-								   va2pfn(enter_guest), NULL);
-		if (ret != 0) {
-			goto out_map_gate;
-		}
-		ret = s1mmu_map_vfn_to_pfn(s1ptp,
-								   VFN(va2pa(titanium_hyp_vector)),
-								   va2pfn(titanium_hyp_vector),
-								   NULL);
-		if (ret != 0) {
-			goto out_map_gate;
-		}
+		/* TODO: optimize this branch */
 	} else {
+		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(SWITCH_GATE_HIGH),
+								   va2pfn(switch_gate), NULL);
+		if (ret != 0) {
+			goto out_map_gate;
+		}
+		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(HYP_VECTOR_HIGH),
+								   va2pfn(titanium_hyp_vector), NULL);
+		if (ret != 0) {
+			goto out_map_gate;
+		}
 		/* FIXME: In optimization, we need to map at least 10 times pages */
 		ret = map_shm_in_spt(s1mmu, s1ptp);
 		if (ret != 0) {
@@ -800,27 +826,30 @@ int write_spt_pte(struct s1mmu *s1mmu, unsigned long fault_ipa,
 {
 	struct ttbr_info *ttbr_info = NULL;
 	struct ptp_info *ptp_info = NULL;
-	vaddr_t fault_hva;
-	s1_pte_t *orig_entry;
-	s1_pte_t *shadow_entry;
+	s1_pte_t *orig_entry = NULL;
+	s1_pte_t *shadow_entry = NULL;
+	unsigned long fault_hpa, fault_hva;
+	unsigned int core_id = get_core_id();
+	unsigned int fixmap_level = level + SEC_FIXMAP_SPT_START;
 	int need_free = 0;
 	int ret;
 
 	ret = spt_info_find_by_ipa(s1mmu->spt_info, fault_ipa, &ttbr_info,
 				   &ptp_info);
 	if (ret < 0) {
-		fault_hva = ipa2hva(s1mmu->vttbr_el2, fault_ipa);
-		printf("ttbr_info not found, ipa: %lx pa: %lx\n", fault_ipa,
-		       fault_hva);
+		fault_hpa = ipa2hpa(s1mmu->vttbr_el2, fault_ipa);
+		printf("ttbr_info not found, ipa: %lx hpa: %lx\n", fault_ipa,
+		       fault_hpa);
 		return 0;
 	}
 	/* TODO: Security check here*/
 
-	fault_hva = ipa2hva(s1mmu->vttbr_el2, fault_ipa);
-	if (fault_hva == 0) {
+	fault_hpa = ipa2hpa(s1mmu->vttbr_el2, fault_ipa);
+	if (fault_hpa == 0) {
 		printf("ipa not mapped in stage-2 pgtbl\n");
 		return -1;
 	}
+	fault_hva = (unsigned long)set_sec_fixmap(fault_hpa, core_id, fixmap_level);
 
 	/* Write original pgtbl pte first */
 	ret = handle_write_orig_pte(fault_hva, val, &need_free);
@@ -844,12 +873,14 @@ int write_spt_pte(struct s1mmu *s1mmu, unsigned long fault_ipa,
      * has been mapped, because write_spt_pte() may destroy the
      * originally mapping.
      * FIXME: Maybe we could find a better way to solve this problem.
+	 * FIXME: ttbr0 do not need map_gate_in spt
      */
 	map_gate_in_spt(s1mmu, (s1_ptp_t *)ttbr_info->shadow_ttbr,
 			ttbr_info->type);
 	// if (ttbr_info->type == TYPE_TTBR0) {
 	//     printf("write_spt_pte, fault_ipa: %lx val: %lx, level: %d\n", fault_ipa, val, level);
 	// }
+	clear_sec_fixmap(core_id, fixmap_level);
 
 	/* TODO: update read-only */
 	return ret;
@@ -916,17 +947,22 @@ int destroy_spt(struct s1mmu *s1mmu, unsigned long ttbr, enum ttbr_type type)
 
 /*
  * Translate VFN from a stage-1 PT
- * Return:
- * FIXME: only support 4-level stage-1 PT with 4K granule
  */
 __secure_text
 s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, unsigned long vfn)
 {
-	s1_ptp_t *l0_table = NULL, *l1_table = NULL, *l2_table = NULL, *l3_table = NULL;
-	s1_pte_t l0_entry, l1_entry, l2_entry, l3_entry = { .pte = 0 };
-	uint32_t l0_shift, l1_shift, l2_shift, l3_shift;
-	uint32_t l0_index, l1_index, l2_index, l3_index;
+#if CONFIG_PGTABLE_LEVELS == 4
+	s1_ptp_t *l0_table = NULL;
+	s1_pte_t l0_entry;
+	uint32_t l0_shift, l0_index;
+#endif
+	s1_ptp_t  *l1_table = NULL, *l2_table = NULL, *l3_table = NULL;
+	s1_pte_t l1_entry, l2_entry, l3_entry = { .pte = ULL(0) };
+	uint32_t l1_shift, l2_shift, l3_shift;
+	uint32_t l1_index, l2_index, l3_index;
+	s1_ptp_t *next_ptp = s1ptp;
 
+#if CONFIG_PGTABLE_LEVELS == 4
 	l0_table = s1ptp;
 	l0_shift = (3 - 0) * PAGE_ORDER;
 	l0_index = (vfn >> l0_shift) & ((1UL << PAGE_ORDER) - 1);
@@ -939,8 +975,10 @@ s1_pte_t translate_stage1_pt_s(s1_ptp_t *s1ptp, unsigned long vfn)
 		/* Huge page should be disabled */
 		return l3_entry;
 	}
+	next_ptp = (s1_ptp_t *)pfn2va(l0_entry.table.next_table_addr);
+#endif
 
-	l1_table = (s1_ptp_t *)pfn2va(l0_entry.table.next_table_addr);
+	l1_table = next_ptp;
 	l1_shift = (3 - 1) * PAGE_ORDER;
 	l1_index = (vfn >> l1_shift) & ((1UL << PAGE_ORDER) - 1);
 	if (!l1_table)
@@ -979,12 +1017,18 @@ __secure_text
 static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 				s1_pte_t *ptep)
 {
-	s1_ptp_t *l0_table = NULL, *l1_table = NULL, *l2_table = NULL, *l3_table = NULL;
-	s1_pte_t l0_entry, l1_entry, l2_entry, l3_entry;
-	uint32_t l0_shift, l1_shift, l2_shift, l3_shift;
-	uint32_t l0_index, l1_index, l2_index, l3_index;
-	s1_ptp_t *next_ptp = NULL;
+#if CONFIG_PGTABLE_LEVELS == 4
+	s1_ptp_t *l0_table = NULL;
+	s1_pte_t l0_entry;
+	uint32_t l0_shift, l0_index;
+#endif
+	s1_ptp_t  *l1_table = NULL, *l2_table = NULL, *l3_table = NULL;
+	s1_pte_t l1_entry, l2_entry, l3_entry;
+	uint32_t l1_shift, l2_shift, l3_shift;
+	uint32_t l1_index, l2_index, l3_index;
+	s1_ptp_t *next_ptp = s1ptp;
 
+#if CONFIG_PGTABLE_LEVELS == 4
 	l0_table = s1ptp;
 	l0_shift = (3 - 0) * PAGE_ORDER;
 	l0_index = (vfn >> l0_shift) & ((1UL << PAGE_ORDER) - 1);
@@ -1010,6 +1054,7 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 	} else {
 		next_ptp = (s1_ptp_t *)pfn2va(l0_entry.table.next_table_addr);
 	}
+#endif
 
 	l1_table = next_ptp;
 	l1_shift = (3 - 1) * PAGE_ORDER;
@@ -1095,6 +1140,12 @@ static int s1mmu_map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn,
 
 __secure_text
 int map_vfn_to_pfn_spt(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn)
+{
+	return s1mmu_map_vfn_to_pfn(s1ptp, vfn, pfn, NULL);
+}
+
+__secure_text
+int map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn)
 {
 	return s1mmu_map_vfn_to_pfn(s1ptp, vfn, pfn, NULL);
 }

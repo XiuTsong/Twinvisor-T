@@ -132,6 +132,7 @@ extern uint64_t enter_guest(uint32_t core_id);
 extern uint64_t exit_guest(void);
 extern uint64_t el1h_sync(void);
 extern uint64_t titanium_hyp_vector(void);
+extern uint64_t switch_gate(void);
 
 #define get_guest_sys_reg(state, reg) \
     (state->current_vcpu_ctx.sys_regs.reg)

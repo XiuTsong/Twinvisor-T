@@ -225,10 +225,10 @@
 .endm
 
 .macro save_guest_states_without_stack
-    msr         ttbr1_el1, x0
+    msr         ttbr0_el1, x0
     get_guest_gp_regs x0
     save_all_gp_regs x0
-    mrs         x2, ttbr1_el1
+    mrs         x2, ttbr0_el1
     stp	        x2, x1, [x0, #CPU_XREG_OFFSET(0)]
 
     get_guest_sys_regs x0

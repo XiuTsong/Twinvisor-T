@@ -214,7 +214,15 @@ int main(void)
   DEFINE(GUEST_TTBR1_OFFSET, asmoffsetof(struct titanium_entry_helper, guest_ttbr1_el1));
   DEFINE(JUMP_VBAR_OFFSET, asmoffsetof(struct titanium_entry_helper, jump_to_guest_vbar));
 
-  DEFINE(GUEST_VECTOR_OFFSET, asmoffsetof(struct sec_shm, guest_vector));
+  /* shared memory offset */
+  DEFINE(SHM_X0_OFFSET, asmoffsetof(struct sec_shm, x0));
+  DEFINE(SHM_X1_OFFSET, asmoffsetof(struct sec_shm, x1));
+  DEFINE(SHM_X2_OFFSET, asmoffsetof(struct sec_shm, x1));
+  DEFINE(SHM_HIGH_ADDR_OFFSET, asmoffsetof(struct sec_shm, high_addr_offset));
+  DEFINE(SHM_TPIDR_OFFSET, asmoffsetof(struct sec_shm, tpidr));
+  DEFINE(SHM_GUEST_VECTOR_OFFSET, asmoffsetof(struct sec_shm, guest_vector));
+  DEFINE(SHM_TTBR_PHYS_OFFSET, asmoffsetof(struct sec_shm, ttbr_phys));
+  DEFINE(SHM_VBAR_TARGET_OFFSET, asmoffsetof(struct sec_shm, vbar_target));
 
   /* el3 regs offset */
   DEFINE(CTX_GPREGS_OFFSET, asmoffsetof(cpu_context_t, gpregs_ctx));
