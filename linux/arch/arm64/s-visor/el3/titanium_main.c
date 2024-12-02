@@ -109,44 +109,6 @@ static void __el3_text pass_el1_fault_state_to_el2(titanium_context_t *titanium_
 	write_sysreg(far_el1, far_el2);
 }
 
-static void __el3_text prepare_return_to_el1(void *handle)
-{
-	/* We will return to s-visor, only reserve HCR_EL2.E2H and HCR_EL2.RW */
-	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_HCR_EL2, read_sysreg(hcr_el2));
-	write_sysreg(HCR_E2H | HCR_RW, hcr_el2);
-
-	/*
-	 * We clear bits in MDCR_EL2 to avoid guest trapping to EL2
-	 * when they access to debug and performance related registers.
-	 * Only MDCR_EL2.HPMN is preserved now.
-	 */
-	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_MDCR_EL2, read_sysreg(mdcr_el2));
-	write_sysreg(read_sysreg(mdcr_el2) & MDCR_EL2_HPMN_MASK, mdcr_el2);
-
-	/*
-	 * When EL2 enabled, read/write to MPIDR_EL1 will be mapped to VMPIDR_EL2.
-	 * We set VMPIDR_EL2 to MPIDR_EL1 to avoid s-visor reading wrong MPIDR.
-	 */
-	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_VMPIDR_EL2, read_sysreg(vmpidr_el2));
-	write_sysreg(read_sysreg(mpidr_el1), vmpidr_el2);
-
-	cm_set_next_eret_context(SECURE);
-}
-
-static void __el3_text prepare_return_back_el2(void *ns_cpu_ctx)
-{
-	/* We will return to n-visor, set the original HCR_EL2. */
-	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_ctx), CTX_HCR_EL2), hcr_el2);
-
-	/* Restore MDCR_EL2 */
-	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_ctx), CTX_MDCR_EL2), mdcr_el2);
-
-	/* Restore VMPIDR_EL2 */
-	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_ctx), CTX_VMPIDR_EL2), vmpidr_el2);
-
-	cm_set_next_eret_context(NON_SECURE);
-}
-
 /*******************************************************************************
  * TITANIUM Dispatcher setup. The TITANIUM finds out the TITANIUM entrypoint and type
  * (aarch32/aarch64) if not already known and initialises the context for entry
@@ -172,7 +134,7 @@ static int32_t __el3_text titanium_setup(void)
 	return 0;
 }
 
-static uintptr_t __el3_text smc_handle_from_non_secure(void *ns_cpu_ctx, uint32_t smc_imm)
+static uintptr_t __el3_text smc_handle_from_non_secure(void *handle, uint32_t smc_imm)
 {
 	uint32_t linear_id = plat_my_core_pos();
 	titanium_context_t *titanium_ctx = &titanium_secure_context[linear_id];
@@ -183,7 +145,7 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *ns_cpu_ctx, uint32_
 	 * registers need to be preserved, save the non-secure
 	 * state and send the request to the secure payload.
 	 */
-	assert(ns_cpu_ctx == cm_get_context(NON_SECURE));
+	assert(handle == cm_get_context(NON_SECURE));
 	cm_el1_sysregs_context_save(NON_SECURE);
 
 	if (smc_imm == SMC_IMM_KVM_TO_TITANIUM_TRAP) {
@@ -219,7 +181,7 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *ns_cpu_ctx, uint32_
 			 * See n-visor.c:primary_switch_to_svisor()
 			 */
 			write_ctx_reg(get_gpregs_ctx(&titanium_ctx->cpu_ctx), CTX_GPREG_X1,
-							read_ctx_reg(get_gpregs_ctx(ns_cpu_ctx), CTX_GPREG_X1));
+							read_ctx_reg(get_gpregs_ctx(handle), CTX_GPREG_X1));
 			break;
 		case SMC_IMM_KVM_TO_TITANIUM_SECONDARY:
 			cm_set_elr_spsr_el3(SECURE,
@@ -243,7 +205,7 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *ns_cpu_ctx, uint32_
 			 * See n-visor.c:primary_switch_to_svisor()
 			 */
 			write_ctx_reg(get_gpregs_ctx(&titanium_ctx->cpu_ctx), CTX_GPREG_X1,
-							read_ctx_reg(get_gpregs_ctx(ns_cpu_ctx), CTX_GPREG_X1));
+							read_ctx_reg(get_gpregs_ctx(handle), CTX_GPREG_X1));
 			break;
 		case SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_HANDLE:
 			cm_set_elr_el3(SECURE,
@@ -256,15 +218,27 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *ns_cpu_ctx, uint32_
 	/* Restore s-visor el1 system registers */
 	cm_el1_sysregs_context_restore(SECURE);
 
-	prepare_return_to_el1(ns_cpu_ctx);
+	/* We will return to s-visor, only reserve HCR_EL2.E2H and HCR_EL2.RW */
+	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_HCR_EL2, read_sysreg(hcr_el2));
+	write_sysreg(HCR_E2H | HCR_RW, hcr_el2);
 
+	/*
+	 * We clear bits in MDCR_EL2 to avoid guest trapping to EL2
+	 * when they access to debug and performance related registers.
+	 * Only MDCR_EL2.HPMN is preserved now.
+	 */
+	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_MDCR_EL2, read_sysreg(mdcr_el2));
+	write_sysreg(read_sysreg(mdcr_el2) & MDCR_EL2_HPMN_MASK, mdcr_el2);
+
+	cm_set_next_eret_context(SECURE);
 	SMC_RET0(&titanium_ctx->cpu_ctx);
 }
 
-static uintptr_t __el3_text smc_handle_from_secure(void *sec_cpu_ctx, uint32_t smc_imm)
+static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_imm)
 {
 	uint32_t linear_id = plat_my_core_pos();
-	cpu_context_t *ns_cpu_ctx;
+	cpu_context_t *ns_cpu_context;
+	titanium_context_t *titanium_ctx = &titanium_secure_context[linear_id];
 	uint32_t exit_value = smc_imm - 1;
 
 	cm_el1_sysregs_context_save(SECURE);
@@ -276,8 +250,8 @@ static uintptr_t __el3_text smc_handle_from_secure(void *sec_cpu_ctx, uint32_t s
 	/*
 	 * s-vm exit, we need to pass information to n-visor.
 	 */
-	pass_el1_return_state_to_el2(sec_cpu_ctx);
-	pass_el1_fault_state_to_el2(sec_cpu_ctx);
+	pass_el1_return_state_to_el2(titanium_ctx);
+	pass_el1_fault_state_to_el2(titanium_ctx);
 
 	/*
 	 * We will soon change ELR_EL2 and SPSR_EL2 soon for eret.
@@ -287,8 +261,8 @@ static uintptr_t __el3_text smc_handle_from_secure(void *sec_cpu_ctx, uint32_t s
 	cm_el2_eret_state_save(NON_SECURE);
 
 	/* Get a reference to the non-secure context */
-	ns_cpu_ctx = cm_get_context(NON_SECURE);
-	assert(ns_cpu_ctx);
+	ns_cpu_context = cm_get_context(NON_SECURE);
+	assert(ns_cpu_context);
 
 	/* Restore non-secure el1 system registers. */
 	cm_el1_sysregs_context_restore(NON_SECURE);
@@ -311,9 +285,15 @@ static uintptr_t __el3_text smc_handle_from_secure(void *sec_cpu_ctx, uint32_t s
 		default:
 			el3_panic();
 	}
-	prepare_return_back_el2(ns_cpu_ctx);
 
-	SMC_RET0(ns_cpu_ctx);
+	/* We will return to n-visor, set the original HCR_EL2. */
+	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_context), CTX_HCR_EL2), hcr_el2);
+
+	/* Restore MDCR_EL2 */
+	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_context), CTX_MDCR_EL2), mdcr_el2);
+
+	cm_set_next_eret_context(NON_SECURE);
+	SMC_RET0(ns_cpu_context);
 }
 
 /*******************************************************************************

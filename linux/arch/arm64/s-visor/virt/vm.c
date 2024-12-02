@@ -347,9 +347,9 @@ static void __secure_text handle_vgic_interrupt(struct titanium_state *state, st
 	irqnr = vgic_inject_irq(vgic);
 	if (irqnr >= 0) {
 		/*
-		 * Disable local irq may not be necessary
-		 * as irq has already been masked in S-visor
-		 */
+			* Disable local irq may not be necessary
+			* as irq has already been masked in S-visor
+			*/
 		shared_mem->irqnr = irqnr;
 		if (is_guest_user_mode()) {
 			jump_to_el0_irq_guest(&state->entry_helper, target_vm->guest_vector);
