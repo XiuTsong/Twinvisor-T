@@ -243,6 +243,10 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 
 	cm_el1_sysregs_context_save(SECURE);
 
+	if (smc_imm == SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR) {
+		is_fixup_vttbr[linear_id] = 1;
+		asm volatile("mrs %0, elr_el2" : "=r" (fixup_vttbr_elr_el3[linear_id]));
+	}
 	/*
 	 * s-vm exit, we need to pass information to n-visor.
 	 */
@@ -270,8 +274,6 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 						   NVISOR_HYP_VECTOR_BASE + (8 + exit_value) * 0x80);
 			break;
 		case SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR:
-			asm volatile("mrs %0, elr_el2" : "=r" (fixup_vttbr_elr_el3[linear_id]));
-			is_fixup_vttbr[linear_id] = 1;
 			/* Set exit_value the same as SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC */
 			exit_value = 0;
 			cm_set_elr_el3(NON_SECURE,
