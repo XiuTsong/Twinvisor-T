@@ -124,7 +124,7 @@ static void __el3_text prepare_return_to_el1(void *handle)
 	write_sysreg(read_sysreg(mdcr_el2) & MDCR_EL2_HPMN_MASK, mdcr_el2);
 
 	/*
-	 * When EL2 enabled, read/write to MPIDR_EL1 will be mapped to VMPIDR_EL2.
+	 * When EL2 enabled, any read to MPIDR_EL1 will be mapped to VMPIDR_EL2.
 	 * We set VMPIDR_EL2 to MPIDR_EL1 to avoid s-visor reading wrong MPIDR.
 	 */
 	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_VMPIDR_EL2, read_sysreg(vmpidr_el2));
