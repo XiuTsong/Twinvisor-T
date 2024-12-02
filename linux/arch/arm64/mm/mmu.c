@@ -563,13 +563,13 @@ static void __init map_svisor_other(pgd_t *pgdp)
 
 static void __init map_svisor_device(pgd_t *pgdp)
 {
-	unsigned long va_start = (unsigned long)PLAT_ARM_BOOT_UART_BASE;
+	unsigned long va_start = SVISOR_UART_BASE;
+	unsigned long pa = PLAT_ARM_BOOT_UART_BASE;
 	unsigned long size = SZ_2M;
 
 	/* Identity mapping here */
-	__create_pgd_mapping(pgdp, va_start, va_start,
-						 size,
-						 __pgprot(PROT_DEVICE_nGnRnE), early_secure_alloc, 0);
+	__create_pgd_mapping(pgdp, pa, va_start,
+						 size, __pgprot(PROT_DEVICE_nGnRnE), early_secure_alloc, 0);
 }
 
 static void __init print_svisor_layout(void)
@@ -589,12 +589,11 @@ void __init map_svisor(void)
 	pgdp = pgd_set_fixmap(pgd_phys);
 	map_svisor_text(pgdp);
 	map_svisor_other(pgdp);
-	pgd_clear_fixmap();
-
-	pgd_phys = SECURE_IDMAP_DIR_PHYS;
-	pgdp = pgd_set_fixmap(pgd_phys);
 	map_svisor_device(pgdp);
 	pgd_clear_fixmap();
+	// pgd_phys = SECURE_IDMAP_DIR_PHYS;
+	// pgdp = pgd_set_fixmap(pgd_phys);
+	// pgd_clear_fixmap();
 }
 
 #endif

@@ -113,4 +113,19 @@ typedef struct {
     s1_pte_t ent[1 << PGTBL_4K_BITS];
 } s1_ptp_t;
 
+#define PAGE_ORDER                                (9)
+#define LEVEL_INDEX_MASK  ((1UL << PAGE_ORDER) - 1)
+
+#define L0_SHIFT        (3 - 0) * PAGE_ORDER
+#define L1_SHIFT        (3 - 1) * PAGE_ORDER
+#define L2_SHIFT        (3 - 2) * PAGE_ORDER
+#define L3_SHIFT        (3 - 3) * PAGE_ORDER
+
+#define L0_INDEX(vfn)		(((vfn) >> L0_SHIFT) & LEVEL_INDEX_MASK)
+#define L1_INDEX(vfn)		(((vfn) >> L1_SHIFT) & LEVEL_INDEX_MASK)
+#define L2_INDEX(vfn)		(((vfn) >> L2_SHIFT) & LEVEL_INDEX_MASK)
+#define L3_INDEX(vfn)		(((vfn) >> L3_SHIFT) & LEVEL_INDEX_MASK)
+
+int map_vfn_to_pfn(s1_ptp_t *s1ptp, vaddr_t vfn, paddr_t pfn);
+
 #endif

@@ -150,6 +150,7 @@
 #define CTX_CNTHV_CTL_EL2         U(0xf0)
 #define CTX_CNTHV_CVAL_EL2         U(0xf8)
 #define CTX_CNTHV_TVAL_EL2         U(0x100)
+#define CTX_MDCR_EL2			   U(0x108)
 #define CTX_EL2_SYSREGS_END U(0x110)
 
 #ifndef __ASSEMBLER__
@@ -170,6 +171,7 @@
 /* Constants to determine the size of individual context structures */
 #define CTX_GPREG_ALL		(CTX_GPREGS_END >> DWORD_SHIFT)
 #define CTX_EL1_SYSREGS_ALL	(CTX_EL1_SYSREGS_END >> DWORD_SHIFT)
+#define CTX_EL2_SYSREGS_ALL	(CTX_EL2_SYSREGS_END >> DWORD_SHIFT)
 #define CTX_EL3STATE_ALL	(CTX_EL3STATE_END >> DWORD_SHIFT)
 
 /*
@@ -188,7 +190,7 @@ typedef struct _gp_regs {
  * architectural state during world switches.
  */
 DEFINE_REG_STRUCT(el1_sysregs, CTX_EL1_SYSREGS_ALL);
-DEFINE_REG_STRUCT(el2_sysregs, CTX_EL1_SYSREGS_ALL);
+DEFINE_REG_STRUCT(el2_sysregs, CTX_EL2_SYSREGS_ALL);
 
 /*
  * Miscellaneous registers used by EL3 firmware to maintain its state

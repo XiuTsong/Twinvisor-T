@@ -14,11 +14,6 @@ void __secure_text list_init(struct list_head* head)
 	head->prev = head;
 }
 
-int __secure_text list_empty(struct list_head* head)
-{
-	return (head->next == head);
-}
-
 void __secure_text list_remove(struct list_head *node)
 {
 	node->next->prev = node->prev;

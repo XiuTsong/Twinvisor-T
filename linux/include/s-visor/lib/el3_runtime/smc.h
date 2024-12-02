@@ -10,11 +10,45 @@
 #ifndef __SVISOR_SMC_H__
 #define __SVISOR_SMC_H__
 
+#include <s-visor/el3/titanium_private.h>
+
 #ifdef __ASSEMBLER__
+
+#include <s-visor/lib/el3_runtime/context_macros.S>
 
 /* s-visor can call hvc directly */
 .macro __smc imm
 	hvc \imm
+.endm
+
+/* FIXME: get core id can be optimized */
+.macro ____before_nvisor_smc
+	cm_save_gp_ctx_secure
+	mov x0, #1
+	bl cm_el2_eret_state_save
+	mrs x1, vbar_el2
+	mrs x2, daif
+	stp x1, x2, [sp, #-16]!
+	cm_get_context_ns
+	mov x6, x0
+	msr daifset, #2
+	ldr x0, =runtime_exceptions
+	msr vbar_el2, x0
+.endm
+
+.macro ____after_nvisor_smc
+	ldp x1, x2, [sp], #16
+	msr vbar_el2, x1
+	msr daif, x2
+	mov x0, #1
+	bl cm_el2_eret_state_restore
+	cm_restore_gp_ctx_secure
+.endm
+
+.macro __nvisor_smc imm
+	____before_nvisor_smc
+	hvc \imm
+	____after_nvisor_smc
 .endm
 
 #else

@@ -2,6 +2,7 @@
 
 #include <s-visor/common/asm.h>
 #include <s-visor/lib/el3_runtime/smc.h>
+#include <s-visor/lib/el3_runtime/smccc.h>
 #include <s-visor/el3/titanium_private.h>
 
 .macro save_args_to_vm ctxt
@@ -28,7 +29,29 @@ LOCAL_TITANIUM_ENTRY(vector_fast_smc_entry)
 TITANIUM_ENTRY_END(vector_fast_smc_entry)
 
 LOCAL_TITANIUM_ENTRY(vector_kvm_trap_smc_entry)
-        b	.	/* SMC should not return */
+	save_guest_states x0, x1, x2
+	bl      __get_core_pos
+	ldr     x1, =current_cpu_stack_sps
+	mov     w2, #8
+	umaddl  x1, w0, w2, x1  // x1 = x1 + w0 * w2
+	ldr     x1, [x1]
+	mov     sp, x1
+
+	mrs     x0, tpidr_el1
+	mov     x1, #ARM_SMCCC_KVM_TRAP_CALL
+	bl forward_smc_to_vm
+	cbnz     x0, 1f
+	/*
+	 * esr_el1 may be modified for simulating.
+	 * Do not restore esr_el1 here.
+	 */
+	restore_guest_states_except_esr x0, x1
+	__smc	#SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC // sync
+1:
+	restore_guest_states x0, x1
+	__smc	#SMC_IMM_TITANIUM_TO_KVM_TRAP_IRQ // irq
+
+	b	.	/* SMC should not return */
 TITANIUM_ENTRY_END(vector_kvm_trap_smc_entry)
 
 /*

@@ -12,11 +12,13 @@
 #define ARM64_MMU_PTE_TABLE_MASK                  (1 << 1)
 
 #define PAGE_ORDER                                (9)
+#define ARM64_LEVEL_INDEX_MASK  ((1UL << PAGE_ORDER) - 1)
 
 #define PGTBL_4K_BITS                             (9)
 #define PGTBL_4K_ENTRIES                          (1 << (PGTBL_4K_BITS))
 #define PGTBL_4K_MAX_INDEX                        ((PGTBL_4K_ENTRIES) - 1)
 
+#define ARM64_MMU_L0_SHIFT                        (27)
 #define ARM64_MMU_L1_BLOCK_ORDER                  (18)
 #define ARM64_MMU_L2_BLOCK_ORDER                  (9)
 #define ARM64_MMU_L3_PAGE_ORDER                   (0)
@@ -42,6 +44,11 @@
 #define GET_VA_OFFSET_L1(va)      (va & ARM64_MMU_L1_BLOCK_MASK)
 #define GET_VA_OFFSET_L2(va)      (va & ARM64_MMU_L2_BLOCK_MASK)
 #define GET_VA_OFFSET_L3(va)      (va & ARM64_MMU_L3_PAGE_MASK)
+
+#define GET_IPN_OFFSET_L0(ipn)  (((ipn) >> ARM64_MMU_L0_SHIFT) & ARM64_LEVEL_INDEX_MASK)
+#define GET_IPN_OFFSET_L1(ipn)  (((ipn) >> ARM64_MMU_L1_BLOCK_ORDER) & ARM64_LEVEL_INDEX_MASK)
+#define GET_IPN_OFFSET_L2(ipn)  (((ipn) >> ARM64_MMU_L2_BLOCK_ORDER) & ARM64_LEVEL_INDEX_MASK)
+#define GET_IPN_OFFSET_L3(ipn)  (((ipn) >> ARM64_MMU_L3_PAGE_ORDER) & ARM64_LEVEL_INDEX_MASK)
 
 #define PTE_DESCRIPTOR_INVALID                    (0)
 #define PTE_DESCRIPTOR_BLOCK                      (1)
@@ -127,6 +134,6 @@ typedef struct {
     pte_t ent[1 << PGTBL_4K_BITS];
 } ptp_t;
 
-pte_t translate_stage2_pt(ptp_t *s2ptp, paddr_t ipn);
+pte_t translate_stage2_pt(paddr_t s2pt_phys, paddr_t ipn);
 
 #endif

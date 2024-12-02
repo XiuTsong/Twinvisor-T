@@ -92,6 +92,7 @@
 extern char __svisor_early_alloc_base[];
 extern char __svisor_pg_dir[];
 extern char __svisor_idmap_dir[];
+#define SECURE_PG_DIR_VIRT ((unsigned long)__svisor_pg_dir)
 #define SECURE_PG_DIR_PHYS __pa_symbol((unsigned long)__svisor_pg_dir)
 #define SECURE_IDMAP_DIR_PHYS __pa_symbol((unsigned long)__svisor_idmap_dir)
 

@@ -36,6 +36,9 @@
 extern char __svisor_handler[];
 struct titanium_vectors __el3_data *titanium_vector_table;
 
+extern char __kvm_hyp_vector[];
+#define NVISOR_HYP_VECTOR_BASE ((unsigned long)__kvm_hyp_vector)
+
 /*******************************************************************************
  * Array to keep track of per-cpu TITANIUM state
  ******************************************************************************/
@@ -64,8 +67,8 @@ static void __el3_text pass_el2_return_state_to_el1(titanium_context_t *titanium
 
 static void __el3_text pass_el1_return_state_to_el2(titanium_context_t *titanium_ctx)
 {
-	uint64_t elr_el1 = read_sysreg(elr_el1);
-	uint64_t spsr_el1 = read_sysreg(spsr_el1);
+	uint64_t elr_el1 = read_sysreg(elr_el12);
+	uint64_t spsr_el1 = read_sysreg(spsr_el12);
 
 	/* Pass ELR_EL1 to ELR_EL2 */
 	write_sysreg(elr_el1, elr_el2);
@@ -76,8 +79,8 @@ static void __el3_text pass_el1_return_state_to_el2(titanium_context_t *titanium
 
 static void __el3_text pass_el1_fault_state_to_el2(titanium_context_t *titanium_ctx)
 {
-	unsigned long esr_el1 = read_sysreg(esr_el1);
-	unsigned long far_el1 = read_sysreg(far_el1);
+	unsigned long esr_el1 = read_sysreg(esr_el12);
+	unsigned long far_el1 = read_sysreg(far_el12);
 	unsigned long hpfar_el2 = 0;
 	uint64_t kvm_exit_reason = ESR_EL_EC(esr_el1);
 
@@ -193,7 +196,6 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *handle, uint32_t sm
 				is_fixup_vttbr[linear_id] = 0;
 				cm_set_elr_el3(SECURE, fixup_vttbr_elr_el3[linear_id]);
 			}
-			memcpy(get_gpregs_ctx(&titanium_ctx->cpu_ctx), get_gpregs_ctx(handle), sizeof(gp_regs_t));
 			break;
 		case SMC_IMM_KVM_TO_TITANIUM_SHARED_MEMORY_REGISTER:
 			cm_set_elr_el3(SECURE,
@@ -220,6 +222,14 @@ static uintptr_t __el3_text smc_handle_from_non_secure(void *handle, uint32_t sm
 	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_HCR_EL2, read_sysreg(hcr_el2));
 	write_sysreg(HCR_E2H | HCR_RW, hcr_el2);
 
+	/*
+	 * We clear bits in MDCR_EL2 to avoid guest trapping to EL2
+	 * when they access to debug and performance related registers.
+	 * Only MDCR_EL2.HPMN is preserved now.
+	 */
+	write_ctx_reg(get_el2_sysregs_ctx(handle), CTX_MDCR_EL2, read_sysreg(mdcr_el2));
+	write_sysreg(read_sysreg(mdcr_el2) & MDCR_EL2_HPMN_MASK, mdcr_el2);
+
 	cm_set_next_eret_context(SECURE);
 	SMC_RET0(&titanium_ctx->cpu_ctx);
 }
@@ -233,6 +243,10 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 
 	cm_el1_sysregs_context_save(SECURE);
 
+	if (smc_imm == SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR) {
+		is_fixup_vttbr[linear_id] = 1;
+		asm volatile("mrs %0, elr_el2" : "=r" (fixup_vttbr_elr_el3[linear_id]));
+	}
 	/*
 	 * s-vm exit, we need to pass information to n-visor.
 	 */
@@ -255,19 +269,15 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 	switch (smc_imm) {
 		case SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC:
 		case SMC_IMM_TITANIUM_TO_KVM_TRAP_IRQ:
-			memcpy(get_gpregs_ctx(ns_cpu_context), get_gpregs_ctx(handle), sizeof(gp_regs_t));
 			/* skip the first eight handler */
 			cm_set_elr_el3(NON_SECURE,
-						   (uint64_t)cm_get_vbar_el2(NON_SECURE) + (8 + exit_value) * 0x80);
+						   NVISOR_HYP_VECTOR_BASE + (8 + exit_value) * 0x80);
 			break;
 		case SMC_IMM_TITANIUM_TO_KVM_FIXUP_VTTBR:
-			asm volatile("mrs %0, elr_el2" : "=r" (fixup_vttbr_elr_el3[linear_id]));
-			memcpy(get_gpregs_ctx(ns_cpu_context), get_gpregs_ctx(handle), sizeof(gp_regs_t));
-			is_fixup_vttbr[linear_id] = 1;
 			/* Set exit_value the same as SMC_IMM_TITANIUM_TO_KVM_TRAP_SYNC */
 			exit_value = 0;
 			cm_set_elr_el3(NON_SECURE,
-						   (uint64_t)cm_get_vbar_el2(NON_SECURE) + (8 + exit_value) * 0x80);
+						   NVISOR_HYP_VECTOR_BASE + (8 + exit_value) * 0x80);
 			break;
 		case SMC_IMM_TITANIUM_TO_KVM_SHARED_MEMORY:
 		case SMC_IMM_TITANIUM_TO_KVM_RETURN:
@@ -276,10 +286,11 @@ static uintptr_t __el3_text smc_handle_from_secure(void *handle, uint32_t smc_im
 			el3_panic();
 	}
 
-	/*
-	 * We will return to n-visor, set the original HCR_EL2.
-	 */
+	/* We will return to n-visor, set the original HCR_EL2. */
 	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_context), CTX_HCR_EL2), hcr_el2);
+
+	/* Restore MDCR_EL2 */
+	write_sysreg(read_ctx_reg(get_el2_sysregs_ctx(ns_cpu_context), CTX_MDCR_EL2), mdcr_el2);
 
 	cm_set_next_eret_context(NON_SECURE);
 	SMC_RET0(ns_cpu_context);

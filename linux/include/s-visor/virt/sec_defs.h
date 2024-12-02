@@ -19,6 +19,22 @@
 
 #define SEL1_VSTTBR ((unsigned long)0x400000000)
 
+#define HYP_VECTOR_LOW 0x40000
+#define JUMP_OFFSET_ORDER   11
+#define JUMP_OFFSET        (1 << JUMP_OFFSET_ORDER)
+#ifdef CONFIG_ARM64_VA_BITS_48
+#define HYP_VECTOR_HIGH 0xffffa00000000000
+#define SWITCH_GATE_HIGH 0xffffa00000001000
+#else
+#define HYP_VECTOR_HIGH 0xfffffff080000000
+#define SWITCH_GATE_HIGH 0xfffffff080001000
+#endif
+#define SWITCH_GATE_JUMP_HIGH (SWITCH_GATE_HIGH + JUMP_OFFSET)
+
+#define SWITCH_GATE_LOW 0x41000
+#define SWITCH_GATE_JUMP_LOW (SWITCH_GATE_LOW + JUMP_OFFSET)
+
+
 /* SEL1_SVC: Call gate to s-visor, and then return back */
 #define SEL1_SVC                        0x99
 

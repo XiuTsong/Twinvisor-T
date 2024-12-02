@@ -25,6 +25,9 @@
 #include <asm/kvm_asm.h>
 #include <asm/kvm_mmu.h>
 #include <asm/mmu.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/lib/el3_runtime/smc.h>
+#endif
 
 .macro save_caller_saved_regs_vect
 	/* x0 and x1 were saved in the vector entry */
@@ -48,6 +51,11 @@
 	ldp	x4, x5,   [sp], #16
 	ldp	x2, x3,   [sp], #16
 	ldp	x0, x1,   [sp], #16
+.endm
+
+.macro handle_switch_from_secure
+	____after_nvisor_smc
+	stp	x0, x1, [sp, #-16]!
 .endm
 
 	.text
@@ -78,6 +86,10 @@ ENTRY(__vhe_hyp_call)
 	isb
 	ret
 ENDPROC(__vhe_hyp_call)
+
+el1_sync_sec:
+	handle_switch_from_secure
+	b el1_sync
 
 el1_sync:				// Guest trapped into EL2
 
@@ -176,6 +188,10 @@ el1_trap:
 	mov	x0, #ARM_EXCEPTION_TRAP
 	b	__guest_exit
 
+el1_irq_sec:
+	handle_switch_from_secure
+	b el1_irq
+
 el1_irq:
 	get_vcpu_ptr	x1, x0
 	mov	x0, #ARM_EXCEPTION_IRQ
@@ -246,6 +262,11 @@ ENDPROC(\label)
 	b	\target
 .endm
 
+.macro valid_vect_sec target
+	.align 7
+	b	\target
+.endm
+
 .macro invalid_vect target
 	.align 7
 	b	\target
@@ -264,8 +285,8 @@ ENTRY(__kvm_hyp_vector)
 	invalid_vect	el2h_fiq_invalid	// FIQ EL2h
 	valid_vect	el2_error		// Error EL2h
 
-	valid_vect	el1_sync		// Synchronous 64-bit EL1
-	valid_vect	el1_irq			// IRQ 64-bit EL1
+	valid_vect_sec	el1_sync_sec		// Synchronous 64-bit EL1
+	valid_vect_sec	el1_irq_sec			// IRQ 64-bit EL1
 	invalid_vect	el1_fiq_invalid		// FIQ 64-bit EL1
 	valid_vect	el1_error		// Error 64-bit EL1
 

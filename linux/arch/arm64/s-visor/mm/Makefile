@@ -13,4 +13,5 @@ obj-y += tlsf.o \
 		 mm.o \
 		 spt_info.o \
 		 sec_mmu.o \
-		 stage2_mmu.o
+		 stage2_mmu.o \
+		 sec_fixmap.o

@@ -25,6 +25,9 @@
 #include <asm/kvm_arm.h>
 #include <asm/kvm_asm.h>
 #include <asm/kvm_mmu.h>
+#ifdef CONFIG_S_VISOR
+#include <s-visor/lib/el3_runtime/smc.h>
+#endif
 
 #define CPU_GP_REG_OFFSET(x)	(CPU_GP_REGS + x)
 #define CPU_XREG_OFFSET(x)	CPU_GP_REG_OFFSET(CPU_USER_PT_REGS + 8*x)
@@ -147,7 +150,11 @@ alternative_else_nop_endif
 	ldr	x18,      [x18, #CPU_XREG_OFFSET(18)]
 
 	// Do not touch any register after this!
+#ifdef CONFIG_S_VISOR
+	__nvisor_smc #SMC_IMM_KVM_TO_TITANIUM_TRAP
+#else
 	smc #1
+#endif
 	stp	x0, x1, [sp, #-16]!
 
 	get_vcpu_ptr	x1, x0
