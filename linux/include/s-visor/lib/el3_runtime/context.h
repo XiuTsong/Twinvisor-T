@@ -151,7 +151,8 @@
 #define CTX_CNTHV_CVAL_EL2         U(0xf8)
 #define CTX_CNTHV_TVAL_EL2         U(0x100)
 #define CTX_MDCR_EL2			   U(0x108)
-#define CTX_EL2_SYSREGS_END U(0x110)
+#define CTX_VMPIDR_EL2			   U(0x110)
+#define CTX_EL2_SYSREGS_END U(0x120)
 
 #ifndef __ASSEMBLER__
 
