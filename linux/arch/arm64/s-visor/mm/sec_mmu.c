@@ -316,8 +316,8 @@ static int sync_spt_page(struct s1mmu *s1mmu, const s1_ptp_t *orig_pgtbl_ipa,
 		return -1;
 	}
 	ret = ptp_info_create(s1mmu->current_ttbr_info,
-			      (unsigned long)orig_pgtbl_ipa,
-			      (unsigned long)shadow_pgtbl);
+						  (unsigned long)orig_pgtbl_ipa,
+						  (unsigned long)shadow_pgtbl);
 	if (ret < 0) {
 		printf("ptp info create failed\n");
 		return ret;
@@ -789,24 +789,11 @@ static int check_need_free(unsigned long orig_val, unsigned long val,
 	return 0;
 }
 
-/*
- * Get shadow_entry and store the result in @shadow_entry.
- * Original page table page and shadow page table page is 1:1 mapping.
- * All we need to do is to compute the offset.
- */
 __secure_text
-static s1_pte_t *get_shadow_entry(struct ptp_info *ptp_info,
+static inline s1_pte_t *get_shadow_entry(struct ptp_info *ptp_info,
 								  unsigned long fault_ipa)
 {
-	unsigned long shadow_pgtbl_ipa;
-	unsigned long shadow_pgtbl_hva;
-	unsigned long offset;
-
-	offset = fault_ipa - ptp_info->orig_ptp;
-	shadow_pgtbl_ipa = ptp_info->shadow_ptp + offset;
-	shadow_pgtbl_hva = pa2va(shadow_pgtbl_ipa);
-
-	return (s1_pte_t *)shadow_pgtbl_hva;
+	return (s1_pte_t *)(ptp_info->shadow_ptp + fault_ipa - ptp_info->orig_ptp);
 }
 
 /*
