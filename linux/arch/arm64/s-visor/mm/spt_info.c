@@ -36,7 +36,7 @@ int __secure_text ptp_info_release(struct ttbr_info *ttbr_info, unsigned long sh
 
 /*
  * Record ptp_info when traverse the whole/partial pgtbl for future use.
- * e.g write_vm_pgtbl will use ttbr_info list and corresponding ptp_info
+ * e.g write_spt_pte will use ttbr_info list and corresponding ptp_info
  * list to match the given fault_ipa.
  * Maybe we could use better data structure or even better way to
  * record the information.
