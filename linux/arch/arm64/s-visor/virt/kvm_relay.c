@@ -30,6 +30,10 @@
 
 #include <asm/asm-offsets.h>
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 extern uint64_t* __secure_data titanium_shared_pages;
 
 kvm_smc_req_t * __secure_text get_smc_req_region_sec(unsigned int core_id)

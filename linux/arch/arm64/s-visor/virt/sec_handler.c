@@ -15,6 +15,10 @@
 #define DEBUG_LEVEL_0
 // #define DEBUG_LEVEL_1
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 __secure_text
 static void sel1_handle_wfi(void)
 {
