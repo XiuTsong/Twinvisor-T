@@ -316,14 +316,12 @@ static int __secure_text fixup_titanium_vm_exit(struct titanium_state *state, in
 		ret = decode_kvm_vm_exit(state, core_id, vcpu_id);
 	}
 	if ((exit_code == TITANIUM_VMEXIT_SYNC && ret == GUEST_SYNC) ||
-		exit_code == TITANIUM_VMEXIT_IRQ ||
-		exit_code == TITANIUM_VMEXIT_USER_SYNC ||
-		exit_code == TITANIUM_VMEXIT_USER_IRQ) {
+		exit_code == TITANIUM_VMEXIT_USER_SYNC) {
 		ret = GUEST_SYNC;
 		prepare_jump_target(entry_helper, state->current_vm->guest_vector, exit_code);
 	}
 
-	/* el0_fiq & el1h_fiq -> return 0, go to nvisor */
+	/* el0_fiq/el1h_fiq/el0_irq/el1h_fiq -> return 0, go to nvisor */
 	return ret;
 }
 

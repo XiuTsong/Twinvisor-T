@@ -30,6 +30,10 @@
 
 #include <asm/asm-offsets.h>
 
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
+
 extern uint64_t* __secure_data titanium_shared_pages;
 
 kvm_smc_req_t * __secure_text get_smc_req_region_sec(unsigned int core_id)
@@ -90,7 +94,7 @@ int decode_kvm_vm_exit(struct titanium_state *state, uint32_t core_id, uint32_t 
 		}
 
 		/* Check if is mmio abort */
-		if (emulate_mmio_fault(state, fault_ipa, vcpu_id)) {
+		if (emulate_mmio_fault(state, fault_ipa, core_id, vcpu_id)) {
 			return HOST_SYNC;
 		}
 	}

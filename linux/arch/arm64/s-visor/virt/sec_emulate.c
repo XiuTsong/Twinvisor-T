@@ -11,8 +11,13 @@
 #include <s-visor/lib/stdint.h>
 #include <s-visor/mm/sec_shm.h>
 #include <s-visor/mm/sec_mmu.h>
+#include <s-visor/mm/sec_fixmap.h>
 #include <s-visor/virt/sec_emulate.h>
 #include <s-visor/virt/sec_defs.h>
+
+#ifdef SVISOR_DEBUG
+#pragma GCC optimize("O0")
+#endif
 
 __secure_text
 static inline int get_rt_from_esr(u_register_t esr)
@@ -132,7 +137,8 @@ static void arch_decode(uint32_t arm64_code, struct titanium_decode *kvm_decode,
 }
 
 __secure_text
-static void emulate_mmio_esr(struct titanium_state *state, unsigned long *esr_el1, uint64_t vcpu_id)
+static void emulate_mmio_esr(struct titanium_state *state, unsigned long *esr_el1,
+							 uint32_t core_id, uint32_t vcpu_id)
 {
 	struct titanium_vcpu *vcpu = state->current_vm->vcpus[vcpu_id];
 	vaddr_t fault_pc = get_guest_sys_reg(state, elr);
@@ -157,18 +163,15 @@ static void emulate_mmio_esr(struct titanium_state *state, unsigned long *esr_el
 		return;
 	}
 	fault_pc_pa = ((uint64_t)entry.l3_page.pfn << PAGE_SHIFT) | (fault_pc & PAGE_MASK_INV);
-
-	arm64_code = *((uint32_t*)phys_to_virt(fault_pc_pa));
+	arm64_code = *((uint32_t *)set_sec_fixmap_l0(fault_pc_pa, core_id));
+	clear_sec_fixmap_l1(core_id);
 	arch_decode(arm64_code, &kvm_decode, &is_write, &size);
-
 	if (is_write) {
 		esr_el |= ESR_ELx_WNR;
 	}
-
 	if (kvm_decode.sign_extend) {
 		esr_el |= ESR_ELx_SSE;
 	}
-
 	if (kvm_decode.sixty_four) {
 		esr_el |= ESR_ELx_SF;
 	}
@@ -187,7 +190,8 @@ static void emulate_mmio_esr(struct titanium_state *state, unsigned long *esr_el
 }
 
 __secure_text
-int emulate_mmio_fault(struct titanium_state *state, unsigned long fault_ipa, uint64_t vcpu_id)
+int emulate_mmio_fault(struct titanium_state *state, unsigned long fault_ipa,
+					   uint32_t core_id, uint32_t vcpu_id)
 {
 	struct titanium_vm *vm = state->current_vm;
 	struct titanium_vcpu *vcpu = vm->vcpus[vcpu_id];
@@ -206,14 +210,14 @@ int emulate_mmio_fault(struct titanium_state *state, unsigned long fault_ipa, ui
 		return 0;
 
 	/* fault_ipa is actually gva due to is_valid bit set to zero.
-		* See sel1_mmu.c: set_spt_l3_entry().
-		* We should convert it to ipa and fill it into FAR_EL1.
-		*/
+	 * See sel1_mmu.c: set_spt_l3_entry().
+	 * We should convert it to ipa and fill it into FAR_EL1.
+	 */
 	real_fault_ipa = ((uint64_t)entry.l3_page.pfn << PAGE_SHIFT) | (fault_ipa & PAGE_MASK_INV);
 	write_sysreg(real_fault_ipa, far_el1);
 
 	/* Construct esr_el1 */
-	emulate_mmio_esr(state, &esr, vcpu_id);
+	emulate_mmio_esr(state, &esr, core_id, vcpu_id);
 	write_sysreg(esr, esr_el1);
 
 	return 1;
