@@ -6,3 +6,5 @@ linux/compile_commands.json
 .gdbinit
 .cache/*
 build/compile_commands.json
+guest-linux/
+.gdb_history
