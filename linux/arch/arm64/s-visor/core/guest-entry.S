@@ -312,18 +312,16 @@ BEGIN_FUNC(enter_guest)
 	/* We call nested functions, follow the ABI. */
 	stp x29, x30, [sp, #-16]!
 
-	/*
-	 * We do not save s-visor's gp regs here since
-	 * we don't need to restore them in exit_guest().
-	 * Because according to the assembly code of forward_smc_to_vm()，
-	 * all the registers are protected in stack.
-	 * We only need to save sp here.
-	 */
-	get_host_sys_regs x0
-	mov x1, sp
-	str x1, [x0, #SYS_SP_OFFSET]
+	/* Save s-visor callee-saved regs */
+	get_host_gp_regs x2
+	save_callee_saved_gp_regs x2
 
-	mov x0, #SHARED_MEM_SIZE
+	/* Save s-visor's sp */
+	get_host_sys_regs x2
+	mov x1, sp
+	str x1, [x2, #SYS_SP_OFFSET]
+
+	mov x2, #SHARED_MEM_SIZE
 	mul x1, x0, x2 // x1 == per-core shared mem offset
 	naive_save_reg x1
 
@@ -349,10 +347,14 @@ normal_switch:
 END_FUNC(enter_guest)
 
 BEGIN_FUNC(exit_guest)
-	/* restore s-visor's stack */
+	/* Restore s-visor's stack */
 	get_host_sys_regs x1
 	ldr x2, [x1, #SYS_SP_OFFSET]
 	mov sp, x2
+
+	/* Restore s-visor's callee-save regs */
+	get_host_gp_regs x1
+	restore_callee_saved_gp_regs x1
 
 	ldp x29, x30, [sp], #16
 	ret
