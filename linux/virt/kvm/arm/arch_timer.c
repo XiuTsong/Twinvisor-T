@@ -270,6 +270,14 @@ void kvm_timer_update_run(struct kvm_vcpu *vcpu)
 		regs->device_irq_level |= KVM_ARM_DEV_EL1_PTIMER;
 }
 
+#ifdef CONFIG_S_VISOR
+static inline void kvm_timer_mask_irq(void)
+{
+	/* Set CNTV_CTL_EL0.IMASK bit in VHE mode */
+	write_sysreg(read_sysreg(cntv_ctl_el02) | ARCH_TIMER_CTRL_IT_MASK, cntv_ctl_el02);
+}
+#endif
+
 static void kvm_timer_update_irq(struct kvm_vcpu *vcpu, bool new_level,
 				 struct arch_timer_context *timer_ctx)
 {
@@ -285,6 +293,13 @@ static void kvm_timer_update_irq(struct kvm_vcpu *vcpu, bool new_level,
 					  timer_ctx->irq.level,
 					  timer_ctx);
 		WARN_ON(ret);
+#ifdef CONFIG_S_VISOR
+		/*
+		 * We have to mask guest's timer interrupt to avoid repeated triggering.
+		 * Note that guest's irq handler will unmask the interrupt.
+		 */
+		kvm_timer_mask_irq();
+#endif
 	}
 }
 
