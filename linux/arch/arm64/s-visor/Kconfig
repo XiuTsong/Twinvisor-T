@@ -4,4 +4,8 @@ menu "Secure Hypervisor"
 config S_VISOR
     bool "Enable s-visor in normal world"
 
+config S_VISOR_DEBUG
+    bool "Enable -O0 compilation in s-visor"
+    depends on S_VISOR
+
 endmenu

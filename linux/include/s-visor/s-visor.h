@@ -13,6 +13,8 @@
 #define __secure_text	__section(.svisor.text)
 #define __secure_data	__section(.svisor.data)
 
+#ifdef CONFIG_S_VISOR_DEBUG
 #define SVISOR_DEBUG
+#endif
 
 #endif
