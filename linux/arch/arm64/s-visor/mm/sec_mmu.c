@@ -389,29 +389,24 @@ int map_shm_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp)
 }
 
 __secure_text
-static int map_gate_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp,
-						   enum ttbr_type type)
+static int map_gate_in_spt(struct s1mmu *s1mmu, s1_ptp_t *s1ptp)
 {
 	int ret = 0;
 
-	if (type == TYPE_TTBR0) {
-		/* TODO: optimize this branch */
-	} else {
-		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(SWITCH_GATE_HIGH),
-								   va2pfn(switch_gate), NULL);
-		if (ret != 0) {
-			goto out_map_gate;
-		}
-		ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(HYP_VECTOR_HIGH),
-								   va2pfn(titanium_hyp_vector), NULL);
-		if (ret != 0) {
-			goto out_map_gate;
-		}
-		/* FIXME: In optimization, we need to map at least 10 times pages */
-		ret = map_shm_in_spt(s1mmu, s1ptp);
-		if (ret != 0) {
-			goto out_map_gate;
-		}
+	ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(SWITCH_GATE_HIGH),
+								va2pfn(switch_gate), NULL);
+	if (ret != 0) {
+		goto out_map_gate;
+	}
+	ret = s1mmu_map_vfn_to_pfn(s1ptp, VFN(HYP_VECTOR_HIGH),
+								va2pfn(titanium_hyp_vector), NULL);
+	if (ret != 0) {
+		goto out_map_gate;
+	}
+	/* FIXME: In optimization, we need to map at least 10 times pages */
+	ret = map_shm_in_spt(s1mmu, s1ptp);
+	if (ret != 0) {
+		goto out_map_gate;
 	}
 
 out_map_gate:
@@ -461,10 +456,12 @@ int create_new_spt(struct s1mmu *s1mmu, unsigned long orig_ttbr,
 	}
 
 	/* Map gate/hyp_vector in spt */
-	ret = map_gate_in_spt(s1mmu, new_pgd_page, type);
-	if (ret < 0) {
-		printf("map gate in spt failed\n");
-		goto out_remove_ttbr_info;
+	if (type == TYPE_TTBR1) {
+		ret = map_gate_in_spt(s1mmu, new_pgd_page);
+		if (ret < 0) {
+			printf("map gate in spt failed\n");
+			goto out_remove_ttbr_info;
+		}
 	}
 	if (shadow_ttbr != NULL) {
 		*shadow_ttbr = (unsigned long)new_pgd_page;
@@ -485,13 +482,14 @@ static int create_tmp_spt(struct s1mmu *s1mmu)
 {
 	s1_ptp_t *tmp_ttbr0 = 0;
 	s1_ptp_t *tmp_ttbr1 = (s1_ptp_t *)get_tmp_ttbr1(s1mmu);
+	int ret;
 
 	tmp_ttbr0 = secure_page_alloc();
 	if (tmp_ttbr0 == NULL) {
-		goto out_bd_alloc_failed;
+		printf("%s: bd alloc tmp ttbr0 failed\n", __func__);
+		return -1;
 	}
 	memset(tmp_ttbr0, 0, PAGE_SIZE);
-	map_gate_in_spt(s1mmu, tmp_ttbr0, TYPE_TTBR0);
 	set_tmp_ttbr0(s1mmu, (unsigned long)tmp_ttbr0);
 	printf("create tmp ttbr0 %p\n", tmp_ttbr0);
 
@@ -500,18 +498,20 @@ static int create_tmp_spt(struct s1mmu *s1mmu)
 		tmp_ttbr1 = secure_page_alloc();
 		if (tmp_ttbr1 == 0) {
 			secure_page_free(tmp_ttbr0);
-			goto out_bd_alloc_failed;
+			printf("%s: bd alloc tmp ttbr1 failed\n", __func__);
+			return -1;
 		}
 		memset(tmp_ttbr1, 0, PAGE_SIZE);
 		set_tmp_ttbr1(s1mmu, (unsigned long)tmp_ttbr1);
 		printf("create tmp ttbr1 %p\n", tmp_ttbr1);
 	}
-	map_gate_in_spt(s1mmu, tmp_ttbr1, TYPE_TTBR1);
+	ret = map_gate_in_spt(s1mmu, tmp_ttbr1);
+	if (ret != 0) {
+		printf("%s: map gate in spt failed\n", __func__);
+		return ret;
+	}
 
 	return 0;
-out_bd_alloc_failed:
-	printf("%s: bd_alloc failed\n", __func__);
-	return -1;
 }
 
 __secure_text
@@ -856,17 +856,17 @@ int write_spt_pte(struct s1mmu *s1mmu, unsigned long fault_ipa,
 		return ret;
 	}
 
-	/* I feeeeel sorry, but I must check here whether the 'gate'
-     * has been mapped, because write_spt_pte() may destroy the
-     * originally mapping.
-     * FIXME: Maybe we could find a better way to solve this problem.
-	 * FIXME: ttbr0 do not need map_gate_in spt
-     */
-	map_gate_in_spt(s1mmu, (s1_ptp_t *)ttbr_info->shadow_ttbr,
-			ttbr_info->type);
-	// if (ttbr_info->type == TYPE_TTBR0) {
-	//     printf("write_spt_pte, fault_ipa: %lx val: %lx, level: %d\n", fault_ipa, val, level);
-	// }
+	/*
+	 * Must check here whether the 'gate' has been mapped here
+	 * since write_spt_pte() may destroy the originally mapping.
+	 */
+	if (ttbr_info->type == TYPE_TTBR1) {
+		ret = map_gate_in_spt(s1mmu, (s1_ptp_t *)ttbr_info->shadow_ttbr);
+		if (ret != 0) {
+			printf("%s map gate in spt failed\n", __func__);
+			return ret;
+		}
+	}
 	clear_sec_fixmap(core_id, fixmap_level);
 
 	/* TODO: update read-only */
